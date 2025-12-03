@@ -15,8 +15,8 @@ const avatarMap: Record<string, { avatar: string; chatAvatar: string }> = {
     chatAvatar: dehtyarChatAvatar,
   },
   dohar: {
-    avatar: doharAvatar,
-    chatAvatar: doharChatAvatar,
+    avatar: doharChatAvatar,
+    chatAvatar: doharAvatar,
   },
   diyar: {
     avatar: diyarAvatar,
