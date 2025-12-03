@@ -164,8 +164,8 @@ const Index = () => {
       ],
       implementation: {
         status: "complete" as const,
-        details: "agent_reasoning_steps table stores each step. The agent-chat edge function implements a 5-iteration autonomous loop using Lovable AI's tool calling with structured JSON output (thought, plan, criticism, action).",
-        techStack: ["Lovable AI", "Edge Functions", "SSE Streaming"],
+        details: "agent_reasoning_steps table stores each step. The agent-chat edge function implements a 5-iteration autonomous loop using structured tool calling with JSON output (thought, plan, criticism, action).",
+        techStack: ["AI Gateway", "Edge Functions", "SSE Streaming"],
       },
     },
   ];
