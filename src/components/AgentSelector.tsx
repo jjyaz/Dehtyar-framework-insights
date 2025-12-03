@@ -58,7 +58,7 @@ export function AgentSelector({ onSelect, onClose }: AgentSelectorProps) {
       {/* Video Preview */}
       <div className="px-4 pt-4">
         <video
-          src="/videos/agents-preview.mp4"
+          src="/videos/agents-preview-v2.mp4"
           autoPlay
           loop
           muted
