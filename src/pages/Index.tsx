@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { DehtyarCharacter } from "@/components/DehtyarCharacter";
 import { FeatureStation } from "@/components/FeatureStation";
 import { ScrollIndicator } from "@/components/ScrollIndicator";
@@ -8,11 +8,31 @@ import { AgentChat } from "@/components/AgentChat";
 import { AgentSelector, Agent } from "@/components/AgentSelector";
 import { DocumentationScroll } from "@/components/DocumentationScroll";
 import { Brain, Users, MessageSquare, ScrollText, Wrench, Eye } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 
 const Index = () => {
   const [showChat, setShowChat] = useState(false);
   const [showDocs, setShowDocs] = useState(false);
   const [selectedAgent, setSelectedAgent] = useState<Agent | null>(null);
+
+  const openDehtyarChat = useCallback(async () => {
+    // Fetch Dehtyar directly and open chat
+    const { data } = await supabase
+      .from("agents")
+      .select("id, name, role, avatar_url, chat_avatar_url")
+      .eq("name", "Dehtyar")
+      .single();
+    
+    if (data) {
+      setSelectedAgent(data);
+    }
+    setShowChat(true);
+  }, []);
+
+  const openAgentSelector = useCallback(() => {
+    setSelectedAgent(null);
+    setShowChat(true);
+  }, []);
 
   const scrollToFeatures = () => {
     document.getElementById('features')?.scrollIntoView({ behavior: 'smooth' });
@@ -189,9 +209,9 @@ const Index = () => {
             className="flex flex-col sm:flex-row gap-4 justify-center mb-16 animate-fade-up"
             style={{ animationDelay: "0.4s" }}
           >
-            <PixelButton variant="primary" onClick={() => setShowChat(true)}>Meet Dehtyar</PixelButton>
+            <PixelButton variant="primary" onClick={openDehtyarChat}>Meet Dehtyar</PixelButton>
             <PixelButton variant="secondary" onClick={scrollToFeatures}>Explore Features</PixelButton>
-            <PixelButton variant="ghost" onClick={() => setShowChat(true)}>Deploy Agent</PixelButton>
+            <PixelButton variant="ghost" onClick={openAgentSelector}>Deploy Agent</PixelButton>
           </div>
 
           {/* Scroll Indicator */}
@@ -254,7 +274,7 @@ const Index = () => {
             The framework awaits. Deploy your first autonomous agent
             and let Dehtyar guide you through the realm of AI.
           </p>
-          <PixelButton variant="primary" className="text-sm md:text-base px-8 py-4" onClick={() => setShowChat(true)}>
+          <PixelButton variant="primary" className="text-sm md:text-base px-8 py-4" onClick={openDehtyarChat}>
             Summon Dehtyar
           </PixelButton>
         </div>
