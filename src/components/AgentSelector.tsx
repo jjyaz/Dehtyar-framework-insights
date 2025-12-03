@@ -55,6 +55,18 @@ export function AgentSelector({ onSelect, onClose }: AgentSelectorProps) {
         </button>
       </div>
 
+      {/* Video Preview */}
+      <div className="px-4 pt-4">
+        <video
+          src="/videos/agents-preview.mp4"
+          autoPlay
+          loop
+          muted
+          playsInline
+          className="w-full rounded-lg border border-border/30 shadow-inner"
+        />
+      </div>
+
       {/* Agent Grid */}
       <div className="p-4">
         {isLoading ? (
