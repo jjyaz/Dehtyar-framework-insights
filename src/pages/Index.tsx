@@ -12,6 +12,10 @@ const Index = () => {
   const [showChat, setShowChat] = useState(false);
   const [showDocs, setShowDocs] = useState(false);
 
+  const scrollToFeatures = () => {
+    document.getElementById('features')?.scrollIntoView({ behavior: 'smooth' });
+  };
+
   const features = [
     {
       icon: <Brain className="w-12 h-12" />,
@@ -25,6 +29,15 @@ const Index = () => {
         "Intelligent forgetting",
       ],
       side: "left" as const,
+      sourceRepos: [
+        { name: "AutoGPT", url: "https://github.com/Significant-Gravitas/AutoGPT" },
+        { name: "SuperAGI", url: "https://github.com/TransformerOptimus/SuperAGI" },
+      ],
+      implementation: {
+        status: "complete" as const,
+        details: "agent_memory table with memory_type (short_term/long_term), importance scoring (0-1), and last_accessed tracking. The execute-tool edge function provides memory_store and memory_recall tools.",
+        techStack: ["Supabase Database", "Edge Functions"],
+      },
     },
     {
       icon: <Users className="w-12 h-12" />,
@@ -38,6 +51,14 @@ const Index = () => {
         "Collaborative problem-solving",
       ],
       side: "right" as const,
+      sourceRepos: [
+        { name: "CrewAI", url: "https://github.com/crewAIInc/crewAI" },
+      ],
+      implementation: {
+        status: "partial" as const,
+        details: "agents table supports multiple agents with role, system_prompt, model, and tools configuration. Multi-agent orchestration and crew delegation planned for Phase 5.",
+        techStack: ["Agent Registry", "Database Schema"],
+      },
     },
     {
       icon: <MessageSquare className="w-12 h-12" />,
@@ -51,6 +72,14 @@ const Index = () => {
         "Consensus building",
       ],
       side: "left" as const,
+      sourceRepos: [
+        { name: "AutoGen", url: "https://github.com/microsoft/autogen" },
+      ],
+      implementation: {
+        status: "planned" as const,
+        details: "Framework for multi-agent conversation with human-in-the-loop gates. Will build on conversations and conversation_messages tables for structured discourse.",
+        techStack: ["Future: Multi-Agent Chat"],
+      },
     },
     {
       icon: <ScrollText className="w-12 h-12" />,
@@ -64,6 +93,14 @@ const Index = () => {
         "Progress tracking",
       ],
       side: "right" as const,
+      sourceRepos: [
+        { name: "AgentGPT", url: "https://github.com/reworkd/AgentGPT" },
+      ],
+      implementation: {
+        status: "partial" as const,
+        details: "tasks table with parent_task_id for hierarchical decomposition, priority for ordering, and status tracking. Full task decomposition loop planned for Phase 3.",
+        techStack: ["Database Schema", "Future: Task Orchestrator"],
+      },
     },
     {
       icon: <Wrench className="w-12 h-12" />,
@@ -77,6 +114,15 @@ const Index = () => {
         "Safe execution sandbox",
       ],
       side: "left" as const,
+      sourceRepos: [
+        { name: "SuperAGI", url: "https://github.com/TransformerOptimus/SuperAGI" },
+        { name: "Superagent", url: "https://github.com/superagent-ai/superagent" },
+      ],
+      implementation: {
+        status: "complete" as const,
+        details: "agent_tools table defines available tools. execute-tool edge function routes to implementations: calculator (safe math evaluation), memory_store, memory_recall, web_search (placeholder).",
+        techStack: ["Edge Functions", "Tool Registry"],
+      },
     },
     {
       icon: <Eye className="w-12 h-12" />,
@@ -90,6 +136,14 @@ const Index = () => {
         "Continuous improvement",
       ],
       side: "right" as const,
+      sourceRepos: [
+        { name: "AutoGPT", url: "https://github.com/Significant-Gravitas/AutoGPT" },
+      ],
+      implementation: {
+        status: "complete" as const,
+        details: "agent_reasoning_steps table stores each step. The agent-chat edge function implements a 5-iteration autonomous loop using Lovable AI's tool calling with structured JSON output (thought, plan, criticism, action).",
+        techStack: ["Lovable AI", "Edge Functions", "SSE Streaming"],
+      },
     },
   ];
 
@@ -134,7 +188,7 @@ const Index = () => {
             style={{ animationDelay: "0.4s" }}
           >
             <PixelButton variant="primary" onClick={() => setShowChat(true)}>Meet Dehtyar</PixelButton>
-            <PixelButton variant="secondary">Explore Features</PixelButton>
+            <PixelButton variant="secondary" onClick={scrollToFeatures}>Explore Features</PixelButton>
             <PixelButton variant="ghost" onClick={() => setShowChat(true)}>Deploy Agent</PixelButton>
           </div>
 
@@ -155,7 +209,7 @@ const Index = () => {
       </div>
 
       {/* Features Section */}
-      <section className="py-16 px-6">
+      <section id="features" className="py-16 px-6">
         <div className="max-w-4xl mx-auto">
           <h2 className="font-pixel text-lg md:text-xl text-center text-ink mb-4">
             THE FRAMEWORK
