@@ -6,6 +6,8 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+const MAX_ITERATIONS = 5;
+
 interface AgentMessage {
   role: "user" | "assistant" | "system";
   content: string;
@@ -16,6 +18,97 @@ interface AgentRequest {
   conversationId?: string;
   message: string;
   useMemory?: boolean;
+}
+
+interface ReasoningStep {
+  thought: string;
+  plan?: string[];
+  criticism?: string;
+  action: {
+    type: "tool" | "respond" | "continue";
+    tool_name?: string;
+    tool_input?: Record<string, unknown>;
+    message?: string;
+  };
+}
+
+// Tool calling schema for structured reasoning
+const agentReasoningTool = {
+  type: "function",
+  function: {
+    name: "agent_reasoning",
+    description: "Structure your reasoning and decide on an action. Use this for EVERY response.",
+    parameters: {
+      type: "object",
+      properties: {
+        thought: {
+          type: "string",
+          description: "What you're currently thinking about this problem",
+        },
+        plan: {
+          type: "array",
+          items: { type: "string" },
+          description: "Your step-by-step plan to solve this",
+        },
+        criticism: {
+          type: "string",
+          description: "What could go wrong with your approach",
+        },
+        action: {
+          type: "object",
+          properties: {
+            type: {
+              type: "string",
+              enum: ["tool", "respond", "continue"],
+              description: "tool=use a tool, respond=give final answer, continue=need more reasoning",
+            },
+            tool_name: {
+              type: "string",
+              description: "Name of tool to use (if type=tool)",
+            },
+            tool_input: {
+              type: "object",
+              description: "Input parameters for the tool (if type=tool)",
+            },
+            message: {
+              type: "string",
+              description: "Your response to the user (if type=respond)",
+            },
+          },
+          required: ["type"],
+        },
+      },
+      required: ["thought", "action"],
+    },
+  },
+};
+
+async function executeToolCall(
+  supabaseUrl: string,
+  toolName: string,
+  toolInput: Record<string, unknown>,
+  agentId: string
+): Promise<string> {
+  try {
+    const response = await fetch(`${supabaseUrl}/functions/v1/execute-tool`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ toolName, toolInput, agentId }),
+    });
+
+    if (!response.ok) {
+      const error = await response.text();
+      return `[Tool Error: ${error}]`;
+    }
+
+    const result = await response.json();
+    return result.result || result.error || "[No result]";
+  } catch (error) {
+    console.error("Tool execution error:", error);
+    return `[Tool execution failed: ${error instanceof Error ? error.message : "Unknown error"}]`;
+  }
 }
 
 serve(async (req) => {
@@ -46,7 +139,6 @@ serve(async (req) => {
         .single();
       agent = agentData;
     } else {
-      // Default to Dehtyar agent
       const { data: agentData } = await supabase
         .from("agents")
         .select("*")
@@ -96,7 +188,7 @@ serve(async (req) => {
         .limit(5);
 
       if (memories && memories.length > 0) {
-        memoryContext = "\n\n[MEMORY CONTEXT]\n" + 
+        memoryContext = "\n\n[MEMORY CONTEXT]\n" +
           memories.map((m) => `[${m.memory_type}]: ${m.content}`).join("\n");
       }
     }
@@ -108,117 +200,233 @@ serve(async (req) => {
       ? "\n\n[AVAILABLE TOOLS]\n" + tools.map((t) => `- ${t.name}: ${t.description}`).join("\n")
       : "";
 
-    // Build messages for AI
+    // Build initial messages
+    const systemPrompt = agent.system_prompt + memoryContext + toolsContext +
+      "\n\nIMPORTANT: You MUST use the agent_reasoning tool for EVERY response. " +
+      "Structure your thinking with thought, plan, criticism, and action. " +
+      "For complex tasks, use action.type='continue' to keep reasoning. " +
+      "Use action.type='tool' to call a tool. " +
+      "Use action.type='respond' with a message only when you have a complete answer.";
+
     const messages: AgentMessage[] = [
-      {
-        role: "system",
-        content: agent.system_prompt + memoryContext + toolsContext +
-          "\n\nYou are an autonomous AI agent capable of reasoning, planning, and executing tasks. " +
-          "When given a complex goal, break it down into smaller tasks. " +
-          "Think step by step and explain your reasoning. " +
-          "If you need to use a tool, describe which tool you would use and why.",
-      },
+      { role: "system", content: systemPrompt },
       ...(history || []).map((h) => ({
         role: h.role as "user" | "assistant",
         content: h.content,
       })),
     ];
 
-    console.log("Agent request:", { agentId: agent.id, model: agent.model, messageCount: messages.length });
+    console.log("Starting autonomous loop for agent:", agent.id, "conversation:", convId);
 
-    // Call Lovable AI
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: agent.model || "google/gemini-2.5-flash",
-        messages,
-        stream: true,
-      }),
-    });
-
-    if (!response.ok) {
-      if (response.status === 429) {
-        return new Response(JSON.stringify({ error: "Rate limits exceeded, please try again later." }), {
-          status: 429,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-      if (response.status === 402) {
-        return new Response(JSON.stringify({ error: "Payment required, please add funds." }), {
-          status: 402,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-      const errorText = await response.text();
-      console.error("AI gateway error:", response.status, errorText);
-      throw new Error(`AI gateway error: ${response.status}`);
-    }
-
-    // For non-streaming response storage, we'll handle the stream
-    // but also collect the full response to store in DB
-    const reader = response.body?.getReader();
-    const decoder = new TextDecoder();
-    let fullResponse = "";
-
-    // Create a TransformStream to both forward and collect the response
+    // Create streaming response
     const { readable, writable } = new TransformStream();
     const writer = writable.getWriter();
+    const encoder = new TextEncoder();
 
-    // Process stream in background
+    // Helper to send SSE events
+    const sendEvent = async (event: string, data: unknown) => {
+      await writer.write(encoder.encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`));
+    };
+
+    // Process autonomous loop in background
     (async () => {
+      let iteration = 0;
+      let finalResponse = "";
+      const reasoningHistory: string[] = [];
+
       try {
-        while (reader) {
-          const { done, value } = await reader.read();
-          if (done) break;
+        while (iteration < MAX_ITERATIONS) {
+          iteration++;
+          console.log(`Iteration ${iteration}/${MAX_ITERATIONS}`);
 
-          const chunk = decoder.decode(value, { stream: true });
-          await writer.write(new TextEncoder().encode(chunk));
+          // Send iteration start event
+          await sendEvent("iteration", { step: iteration, max: MAX_ITERATIONS });
 
-          // Parse SSE to extract content
-          const lines = chunk.split("\n");
-          for (const line of lines) {
-            if (line.startsWith("data: ") && line !== "data: [DONE]") {
-              try {
-                const json = JSON.parse(line.slice(6));
-                const content = json.choices?.[0]?.delta?.content;
-                if (content) {
-                  fullResponse += content;
-                }
-              } catch {
-                // Ignore parse errors for partial JSON
-              }
+          // Build messages with reasoning history
+          const currentMessages = [
+            ...messages,
+            ...reasoningHistory.map((r) => ({ role: "assistant" as const, content: r })),
+          ];
+
+          // Call Lovable AI with tool calling
+          const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${LOVABLE_API_KEY}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              model: agent.model || "google/gemini-2.5-flash",
+              messages: currentMessages,
+              tools: [agentReasoningTool],
+              tool_choice: { type: "function", function: { name: "agent_reasoning" } },
+            }),
+          });
+
+          if (!response.ok) {
+            if (response.status === 429) {
+              await sendEvent("error", { message: "Rate limits exceeded, please try again later." });
+              break;
             }
+            if (response.status === 402) {
+              await sendEvent("error", { message: "Payment required, please add funds." });
+              break;
+            }
+            const errorText = await response.text();
+            console.error("AI gateway error:", response.status, errorText);
+            throw new Error(`AI gateway error: ${response.status}`);
+          }
+
+          const aiResponse = await response.json();
+          const toolCall = aiResponse.choices?.[0]?.message?.tool_calls?.[0];
+
+          if (!toolCall || toolCall.function.name !== "agent_reasoning") {
+            // Fallback: if no tool call, try to extract content
+            const content = aiResponse.choices?.[0]?.message?.content;
+            if (content) {
+              finalResponse = content;
+              await sendEvent("reasoning", {
+                step: iteration,
+                thought: "Direct response without structured reasoning",
+                action: { type: "respond", message: content },
+              });
+            }
+            break;
+          }
+
+          // Parse the structured reasoning
+          let reasoning: ReasoningStep;
+          try {
+            reasoning = JSON.parse(toolCall.function.arguments);
+          } catch (e) {
+            console.error("Failed to parse reasoning:", toolCall.function.arguments);
+            break;
+          }
+
+          console.log(`Step ${iteration} reasoning:`, reasoning.action.type);
+
+          // Store reasoning step in database
+          await supabase.from("agent_reasoning_steps").insert({
+            conversation_id: convId,
+            agent_id: agent.id,
+            step_number: iteration,
+            thought: reasoning.thought,
+            plan: reasoning.plan,
+            criticism: reasoning.criticism,
+            action: reasoning.action,
+          });
+
+          // Send reasoning event to client
+          await sendEvent("reasoning", {
+            step: iteration,
+            thought: reasoning.thought,
+            plan: reasoning.plan,
+            criticism: reasoning.criticism,
+            action: reasoning.action,
+          });
+
+          // Handle action based on type
+          if (reasoning.action.type === "tool" && reasoning.action.tool_name) {
+            // Execute tool
+            await sendEvent("tool_call", {
+              tool: reasoning.action.tool_name,
+              input: reasoning.action.tool_input,
+            });
+
+            const toolResult = await executeToolCall(
+              SUPABASE_URL!,
+              reasoning.action.tool_name,
+              reasoning.action.tool_input || {},
+              agent.id
+            );
+
+            // Update reasoning step with result
+            await supabase
+              .from("agent_reasoning_steps")
+              .update({ action_result: toolResult })
+              .eq("conversation_id", convId)
+              .eq("step_number", iteration);
+
+            await sendEvent("tool_result", {
+              tool: reasoning.action.tool_name,
+              result: toolResult,
+            });
+
+            // Add tool result to reasoning history for next iteration
+            reasoningHistory.push(
+              `[Previous thought: ${reasoning.thought}]\n` +
+              `[Used tool: ${reasoning.action.tool_name}]\n` +
+              `[Tool result: ${toolResult}]\n` +
+              `Continue reasoning with this new information.`
+            );
+          } else if (reasoning.action.type === "continue") {
+            // Add reasoning to history for continued thinking
+            reasoningHistory.push(
+              `[Previous thought: ${reasoning.thought}]\n` +
+              `[Plan: ${reasoning.plan?.join(" → ") || "None"}]\n` +
+              `[Criticism: ${reasoning.criticism || "None"}]\n` +
+              `Continue with the next step of your plan.`
+            );
+          } else if (reasoning.action.type === "respond") {
+            // Final response - stream it to the user
+            finalResponse = reasoning.action.message || "";
+            
+            // Stream the final response character by character for effect
+            for (let i = 0; i < finalResponse.length; i += 3) {
+              const chunk = finalResponse.slice(i, i + 3);
+              await writer.write(
+                encoder.encode(`data: ${JSON.stringify({
+                  choices: [{ delta: { content: chunk } }],
+                })}\n\n`)
+              );
+              // Small delay for streaming effect
+              await new Promise((r) => setTimeout(r, 10));
+            }
+            break;
           }
         }
 
-        // Store assistant response after stream completes
-        if (fullResponse && convId) {
+        // If we hit max iterations without responding, generate a response
+        if (!finalResponse && iteration >= MAX_ITERATIONS) {
+          finalResponse = "I've been thinking deeply about your request, but I need more time to formulate a complete response. Could you help me focus by being more specific?";
+          
+          for (let i = 0; i < finalResponse.length; i += 3) {
+            const chunk = finalResponse.slice(i, i + 3);
+            await writer.write(
+              encoder.encode(`data: ${JSON.stringify({
+                choices: [{ delta: { content: chunk } }],
+              })}\n\n`)
+            );
+            await new Promise((r) => setTimeout(r, 10));
+          }
+        }
+
+        // Store final assistant response
+        if (finalResponse && convId) {
           await supabase.from("conversation_messages").insert({
             conversation_id: convId,
             agent_id: agent.id,
             role: "assistant",
-            content: fullResponse,
+            content: finalResponse,
           });
 
-          // Store in short-term memory if significant
-          if (fullResponse.length > 100) {
+          // Store in memory if significant
+          if (finalResponse.length > 100) {
             await supabase.from("agent_memory").insert({
               agent_id: agent.id,
               memory_type: "short_term",
-              content: `User asked: "${message.substring(0, 100)}..." | Response: "${fullResponse.substring(0, 200)}..."`,
+              content: `User asked: "${message.substring(0, 100)}..." | Response summary: "${finalResponse.substring(0, 200)}..."`,
               importance: 0.5,
             });
           }
         }
 
+        await writer.write(encoder.encode("data: [DONE]\n\n"));
         await writer.close();
       } catch (error) {
-        console.error("Stream processing error:", error);
-        await writer.abort(error);
+        console.error("Autonomous loop error:", error);
+        await sendEvent("error", { message: error instanceof Error ? error.message : "Unknown error" });
+        await writer.close();
       }
     })();
 

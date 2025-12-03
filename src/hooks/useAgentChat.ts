@@ -1,8 +1,22 @@
 import { useState, useCallback } from "react";
 
-interface Message {
+export interface Message {
   role: "user" | "assistant";
   content: string;
+}
+
+export interface ReasoningStep {
+  step: number;
+  thought: string;
+  plan?: string[];
+  criticism?: string;
+  action: {
+    type: "tool" | "respond" | "continue";
+    tool_name?: string;
+    tool_input?: Record<string, unknown>;
+    message?: string;
+  };
+  toolResult?: string;
 }
 
 interface UseAgentChatOptions {
@@ -17,6 +31,9 @@ export function useAgentChat(options: UseAgentChatOptions = {}) {
   const [currentConversationId, setCurrentConversationId] = useState<string | null>(
     options.conversationId || null
   );
+  const [reasoningSteps, setReasoningSteps] = useState<ReasoningStep[]>([]);
+  const [currentStep, setCurrentStep] = useState(0);
+  const [isThinking, setIsThinking] = useState(false);
 
   const sendMessage = useCallback(
     async (message: string) => {
@@ -25,6 +42,9 @@ export function useAgentChat(options: UseAgentChatOptions = {}) {
       const userMessage: Message = { role: "user", content: message };
       setMessages((prev) => [...prev, userMessage]);
       setIsLoading(true);
+      setIsThinking(true);
+      setReasoningSteps([]);
+      setCurrentStep(0);
 
       let assistantContent = "";
 
@@ -76,17 +96,125 @@ export function useAgentChat(options: UseAgentChatOptions = {}) {
 
           buffer += decoder.decode(value, { stream: true });
 
-          // Process complete lines
+          // Process complete events
           let newlineIndex: number;
-          while ((newlineIndex = buffer.indexOf("\n")) !== -1) {
-            const line = buffer.slice(0, newlineIndex);
-            buffer = buffer.slice(newlineIndex + 1);
+          while ((newlineIndex = buffer.indexOf("\n\n")) !== -1) {
+            const eventBlock = buffer.slice(0, newlineIndex);
+            buffer = buffer.slice(newlineIndex + 2);
+
+            // Parse SSE event
+            const lines = eventBlock.split("\n");
+            let eventType = "message";
+            let eventData = "";
+
+            for (const line of lines) {
+              if (line.startsWith("event: ")) {
+                eventType = line.slice(7);
+              } else if (line.startsWith("data: ")) {
+                eventData = line.slice(6);
+              }
+            }
+
+            if (eventData === "[DONE]") {
+              continue;
+            }
+
+            try {
+              if (eventType === "iteration") {
+                const data = JSON.parse(eventData);
+                setCurrentStep(data.step);
+              } else if (eventType === "reasoning") {
+                const data = JSON.parse(eventData);
+                setReasoningSteps((prev) => [...prev, data]);
+                
+                // If this is a respond action, we'll be getting the message soon
+                if (data.action?.type === "respond") {
+                  setIsThinking(false);
+                }
+              } else if (eventType === "tool_call") {
+                const data = JSON.parse(eventData);
+                // Update the last reasoning step with tool info
+                setReasoningSteps((prev) => {
+                  const newSteps = [...prev];
+                  if (newSteps.length > 0) {
+                    newSteps[newSteps.length - 1] = {
+                      ...newSteps[newSteps.length - 1],
+                      action: {
+                        ...newSteps[newSteps.length - 1].action,
+                        tool_name: data.tool,
+                        tool_input: data.input,
+                      },
+                    };
+                  }
+                  return newSteps;
+                });
+              } else if (eventType === "tool_result") {
+                const data = JSON.parse(eventData);
+                // Update the last reasoning step with tool result
+                setReasoningSteps((prev) => {
+                  const newSteps = [...prev];
+                  if (newSteps.length > 0) {
+                    newSteps[newSteps.length - 1].toolResult = data.result;
+                  }
+                  return newSteps;
+                });
+              } else if (eventType === "error") {
+                const data = JSON.parse(eventData);
+                throw new Error(data.message);
+              } else {
+                // Default: try to parse as content
+                const json = JSON.parse(eventData);
+                const content = json.choices?.[0]?.delta?.content;
+                if (content) {
+                  setIsThinking(false);
+                  assistantContent += content;
+                  setMessages((prev) => {
+                    const newMessages = [...prev];
+                    const lastMessage = newMessages[newMessages.length - 1];
+                    if (lastMessage?.role === "assistant") {
+                      lastMessage.content = assistantContent;
+                    }
+                    return newMessages;
+                  });
+                }
+              }
+            } catch {
+              // Try parsing as simple data line
+              if (eventData && eventData !== "[DONE]") {
+                try {
+                  const json = JSON.parse(eventData);
+                  const content = json.choices?.[0]?.delta?.content;
+                  if (content) {
+                    setIsThinking(false);
+                    assistantContent += content;
+                    setMessages((prev) => {
+                      const newMessages = [...prev];
+                      const lastMessage = newMessages[newMessages.length - 1];
+                      if (lastMessage?.role === "assistant") {
+                        lastMessage.content = assistantContent;
+                      }
+                      return newMessages;
+                    });
+                  }
+                } catch {
+                  // Ignore parse errors
+                }
+              }
+            }
+          }
+
+          // Handle remaining single-line data events
+          let lineIndex: number;
+          while ((lineIndex = buffer.indexOf("\n")) !== -1) {
+            const line = buffer.slice(0, lineIndex);
+            buffer = buffer.slice(lineIndex + 1);
 
             if (line.startsWith("data: ") && line !== "data: [DONE]") {
               try {
                 const json = JSON.parse(line.slice(6));
                 const content = json.choices?.[0]?.delta?.content;
                 if (content) {
+                  setIsThinking(false);
                   assistantContent += content;
                   setMessages((prev) => {
                     const newMessages = [...prev];
@@ -110,6 +238,7 @@ export function useAgentChat(options: UseAgentChatOptions = {}) {
         setMessages((prev) => prev.filter((m) => m.content !== ""));
       } finally {
         setIsLoading(false);
+        setIsThinking(false);
       }
     },
     [currentConversationId, options]
@@ -118,13 +247,18 @@ export function useAgentChat(options: UseAgentChatOptions = {}) {
   const clearChat = useCallback(() => {
     setMessages([]);
     setCurrentConversationId(null);
+    setReasoningSteps([]);
+    setCurrentStep(0);
   }, []);
 
   return {
     messages,
     isLoading,
+    isThinking,
     sendMessage,
     clearChat,
     conversationId: currentConversationId,
+    reasoningSteps,
+    currentStep,
   };
 }

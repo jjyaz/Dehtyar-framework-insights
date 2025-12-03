@@ -1,7 +1,8 @@
 import { useState, useRef, useEffect } from "react";
-import { useAgentChat } from "@/hooks/useAgentChat";
+import { useAgentChat, ReasoningStep } from "@/hooks/useAgentChat";
 import { useToast } from "@/hooks/use-toast";
-import { Send, X, Trash2, User, Loader2 } from "lucide-react";
+import { Send, X, Trash2, User, Loader2, Brain, ChevronDown, ChevronUp, Wrench } from "lucide-react";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import dehtyarChat from "@/assets/dehtyar-chat.png";
 
 interface AgentChatProps {
@@ -10,12 +11,78 @@ interface AgentChatProps {
   onClose?: () => void;
 }
 
+function ReasoningPanel({ steps, currentStep, isThinking }: { 
+  steps: ReasoningStep[]; 
+  currentStep: number;
+  isThinking: boolean;
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+
+  if (steps.length === 0 && !isThinking) return null;
+
+  return (
+    <Collapsible open={isOpen} onOpenChange={setIsOpen}>
+      <CollapsibleTrigger className="flex items-center gap-2 px-3 py-2 w-full text-left text-xs bg-muted/30 border-b border-border/50 hover:bg-muted/50 transition-colors">
+        <Brain className={`w-3 h-3 ${isThinking ? "animate-pulse text-primary" : "text-muted-foreground"}`} />
+        <span className="text-muted-foreground">
+          {isThinking ? `Thinking... Step ${currentStep}` : `${steps.length} reasoning step${steps.length !== 1 ? "s" : ""}`}
+        </span>
+        {isOpen ? <ChevronUp className="w-3 h-3 ml-auto" /> : <ChevronDown className="w-3 h-3 ml-auto" />}
+      </CollapsibleTrigger>
+      <CollapsibleContent className="bg-muted/20 border-b border-border/50">
+        <div className="p-3 space-y-3 max-h-48 overflow-y-auto text-xs">
+          {steps.map((step, index) => (
+            <div key={index} className="space-y-1 pb-2 border-b border-border/30 last:border-0">
+              <div className="flex items-center gap-1 text-muted-foreground">
+                <span className="font-medium">Step {step.step}</span>
+                {step.action.type === "tool" && (
+                  <span className="flex items-center gap-1 text-primary">
+                    <Wrench className="w-3 h-3" />
+                    {step.action.tool_name}
+                  </span>
+                )}
+              </div>
+              <p className="text-foreground/80">💭 {step.thought}</p>
+              {step.plan && step.plan.length > 0 && (
+                <p className="text-muted-foreground">📋 {step.plan.join(" → ")}</p>
+              )}
+              {step.criticism && (
+                <p className="text-muted-foreground">⚠️ {step.criticism}</p>
+              )}
+              {step.toolResult && (
+                <div className="mt-1 p-2 bg-background/50 rounded text-muted-foreground">
+                  <span className="font-medium">Result:</span> {step.toolResult.substring(0, 200)}
+                  {step.toolResult.length > 200 && "..."}
+                </div>
+              )}
+            </div>
+          ))}
+          {isThinking && (
+            <div className="flex items-center gap-2 text-muted-foreground">
+              <Loader2 className="w-3 h-3 animate-spin" />
+              <span>Processing step {currentStep}...</span>
+            </div>
+          )}
+        </div>
+      </CollapsibleContent>
+    </Collapsible>
+  );
+}
+
 export function AgentChat({ agentId, className = "", onClose }: AgentChatProps) {
   const [input, setInput] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
 
-  const { messages, isLoading, sendMessage, clearChat } = useAgentChat({
+  const { 
+    messages, 
+    isLoading, 
+    isThinking,
+    sendMessage, 
+    clearChat,
+    reasoningSteps,
+    currentStep,
+  } = useAgentChat({
     agentId,
     onError: (error) => {
       toast({
@@ -32,7 +99,7 @@ export function AgentChat({ agentId, className = "", onClose }: AgentChatProps) 
 
   useEffect(() => {
     scrollToBottom();
-  }, [messages]);
+  }, [messages, reasoningSteps]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -48,7 +115,15 @@ export function AgentChat({ agentId, className = "", onClose }: AgentChatProps) 
       <div className="flex items-center justify-between px-4 py-3 border-b border-border/50 bg-background/80">
         <div className="flex items-center gap-2">
           <img src={dehtyarChat} alt="Dehtyar" className="w-10 h-10" />
-          <span className="font-pixel text-sm text-foreground">Dehtyar Agent</span>
+          <div className="flex flex-col">
+            <span className="font-pixel text-sm text-foreground">Dehtyar Agent</span>
+            {isThinking && (
+              <span className="text-xs text-primary flex items-center gap-1">
+                <Brain className="w-3 h-3 animate-pulse" />
+                Reasoning...
+              </span>
+            )}
+          </div>
         </div>
         <div className="flex items-center gap-1">
           <button
@@ -70,13 +145,17 @@ export function AgentChat({ agentId, className = "", onClose }: AgentChatProps) 
         </div>
       </div>
 
+      {/* Reasoning Panel */}
+      <ReasoningPanel steps={reasoningSteps} currentStep={currentStep} isThinking={isThinking} />
+
       {/* Messages */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
         {messages.length === 0 && (
           <div className="text-center text-muted-foreground py-8">
             <img src={dehtyarChat} alt="Dehtyar" className="w-24 h-24 mx-auto mb-4 opacity-80" />
             <p className="font-pixel text-sm">I am Dehtyar, your autonomous AI agent.</p>
-            <p className="text-xs mt-2">Ask me anything or give me a task to accomplish.</p>
+            <p className="text-xs mt-2">I think step-by-step and can use tools to help you.</p>
+            <p className="text-xs mt-1 text-muted-foreground/70">Ask me anything or give me a task to accomplish.</p>
           </div>
         )}
 
@@ -98,7 +177,14 @@ export function AgentChat({ agentId, className = "", onClose }: AgentChatProps) 
                   : "bg-muted/50 text-foreground border border-border/50"
               }`}
             >
-              <p className="text-sm whitespace-pre-wrap">{message.content || (isLoading && message.role === "assistant" ? "..." : "")}</p>
+              <p className="text-sm whitespace-pre-wrap">
+                {message.content || (isLoading && message.role === "assistant" ? (
+                  <span className="flex items-center gap-2">
+                    <Loader2 className="w-3 h-3 animate-spin" />
+                    {isThinking ? "Thinking..." : "Responding..."}
+                  </span>
+                ) : "")}
+              </p>
             </div>
             
             {message.role === "user" && (
@@ -115,7 +201,10 @@ export function AgentChat({ agentId, className = "", onClose }: AgentChatProps) 
               <img src={dehtyarChat} alt="Dehtyar" className="w-12 h-12" />
             </div>
             <div className="bg-muted/50 rounded-lg px-4 py-2 border border-border/50">
-              <Loader2 className="w-4 h-4 animate-spin text-primary" />
+              <span className="flex items-center gap-2 text-sm">
+                <Brain className="w-4 h-4 animate-pulse text-primary" />
+                Starting to think...
+              </span>
             </div>
           </div>
         )}

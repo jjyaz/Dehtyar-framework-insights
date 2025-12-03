@@ -52,6 +52,60 @@ export type Database = {
           },
         ]
       }
+      agent_reasoning_steps: {
+        Row: {
+          action: Json
+          action_result: string | null
+          agent_id: string | null
+          conversation_id: string | null
+          created_at: string | null
+          criticism: string | null
+          id: string
+          plan: Json | null
+          step_number: number
+          thought: string | null
+        }
+        Insert: {
+          action: Json
+          action_result?: string | null
+          agent_id?: string | null
+          conversation_id?: string | null
+          created_at?: string | null
+          criticism?: string | null
+          id?: string
+          plan?: Json | null
+          step_number: number
+          thought?: string | null
+        }
+        Update: {
+          action?: Json
+          action_result?: string | null
+          agent_id?: string | null
+          conversation_id?: string | null
+          created_at?: string | null
+          criticism?: string | null
+          id?: string
+          plan?: Json | null
+          step_number?: number
+          thought?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agent_reasoning_steps_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "agents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agent_reasoning_steps_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       agent_tools: {
         Row: {
           created_at: string
