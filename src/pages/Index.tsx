@@ -7,13 +7,14 @@ import { PixelButton } from "@/components/PixelButton";
 import { AgentChat } from "@/components/AgentChat";
 import { AgentSelector, Agent } from "@/components/AgentSelector";
 import { DocumentationScroll } from "@/components/DocumentationScroll";
-import { Brain, Users, MessageSquare, ScrollText, Wrench, Eye } from "lucide-react";
+import { Brain, Users, MessageSquare, ScrollText, Wrench, Eye, ChevronDown } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
 const Index = () => {
   const [showChat, setShowChat] = useState(false);
   const [showDocs, setShowDocs] = useState(false);
   const [selectedAgent, setSelectedAgent] = useState<Agent | null>(null);
+  const [caDropdownOpen, setCaDropdownOpen] = useState(false);
 
   const openDehtyarChat = useCallback(async () => {
     // Fetch Dehtyar directly and open chat
@@ -172,6 +173,26 @@ const Index = () => {
   return (
     <div className="min-h-screen parchment-texture relative overflow-hidden">
       <Sparkles />
+
+      {/* CA Dropdown - Top Right */}
+      <div className="absolute top-4 right-4 z-50">
+        <div className="relative">
+          <button
+            onClick={() => setCaDropdownOpen(!caDropdownOpen)}
+            className="flex items-center gap-1 px-3 py-2 bg-background/90 border-2 border-primary/50 rounded font-pixel text-xs text-foreground hover:border-primary transition-colors"
+          >
+            CA
+            <ChevronDown className={`w-3 h-3 transition-transform ${caDropdownOpen ? 'rotate-180' : ''}`} />
+          </button>
+          {caDropdownOpen && (
+            <div className="absolute top-full right-0 mt-2 bg-background border-2 border-primary/50 rounded shadow-lg p-3 min-w-[320px]">
+              <p className="font-pixel text-[8px] text-foreground break-all">
+                XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+              </p>
+            </div>
+          )}
+        </div>
+      </div>
 
       {/* Hero Section */}
       <section className="min-h-screen flex flex-col items-center justify-center px-6 pt-16 md:pt-24 relative">
