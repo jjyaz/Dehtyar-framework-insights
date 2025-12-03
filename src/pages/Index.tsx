@@ -1,11 +1,15 @@
+import { useState } from "react";
 import { DehtyarCharacter } from "@/components/DehtyarCharacter";
 import { FeatureStation } from "@/components/FeatureStation";
 import { ScrollIndicator } from "@/components/ScrollIndicator";
 import { Sparkles } from "@/components/Sparkles";
 import { PixelButton } from "@/components/PixelButton";
-import { Brain, Users, MessageSquare, ScrollText, Wrench, Eye } from "lucide-react";
+import { AgentChat } from "@/components/AgentChat";
+import { Brain, Users, MessageSquare, ScrollText, Wrench, Eye, X } from "lucide-react";
 
 const Index = () => {
+  const [showChat, setShowChat] = useState(false);
+
   const features = [
     {
       icon: <Brain className="w-12 h-12" />,
@@ -127,9 +131,9 @@ const Index = () => {
             className="flex flex-col sm:flex-row gap-4 justify-center mb-16 animate-fade-up"
             style={{ animationDelay: "0.4s" }}
           >
-            <PixelButton variant="primary">Meet Dehtyar</PixelButton>
+            <PixelButton variant="primary" onClick={() => setShowChat(true)}>Meet Dehtyar</PixelButton>
             <PixelButton variant="secondary">Explore Features</PixelButton>
-            <PixelButton variant="ghost">Deploy Agent</PixelButton>
+            <PixelButton variant="ghost" onClick={() => setShowChat(true)}>Deploy Agent</PixelButton>
           </div>
 
           {/* Scroll Indicator */}
@@ -192,7 +196,7 @@ const Index = () => {
             The framework awaits. Deploy your first autonomous agent
             and let Dehtyar guide you through the realm of AI.
           </p>
-          <PixelButton variant="primary" className="text-sm md:text-base px-8 py-4">
+          <PixelButton variant="primary" className="text-sm md:text-base px-8 py-4" onClick={() => setShowChat(true)}>
             Summon Dehtyar
           </PixelButton>
         </div>
@@ -217,6 +221,21 @@ const Index = () => {
           </div>
         </div>
       </footer>
+
+      {/* Agent Chat Modal */}
+      {showChat && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+          <div className="relative w-full max-w-2xl h-[600px] animate-fade-up">
+            <button
+              onClick={() => setShowChat(false)}
+              className="absolute -top-12 right-0 p-2 text-white hover:text-primary transition-colors"
+            >
+              <X className="w-6 h-6" />
+            </button>
+            <AgentChat className="h-full" />
+          </div>
+        </div>
+      )}
     </div>
   );
 };
