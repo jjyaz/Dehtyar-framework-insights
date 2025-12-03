@@ -1,7 +1,8 @@
 import { useState, useRef, useEffect } from "react";
 import { useAgentChat } from "@/hooks/useAgentChat";
 import { useToast } from "@/hooks/use-toast";
-import { Send, Trash2, Bot, User, Loader2 } from "lucide-react";
+import { Send, Trash2, User, Loader2 } from "lucide-react";
+import dehtyarChat from "@/assets/dehtyar-chat.png";
 
 interface AgentChatProps {
   agentId?: string;
@@ -45,7 +46,7 @@ export function AgentChat({ agentId, className = "" }: AgentChatProps) {
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-border/50 bg-background/80">
         <div className="flex items-center gap-2">
-          <Bot className="w-5 h-5 text-primary" />
+          <img src={dehtyarChat} alt="Dehtyar" className="w-6 h-6" />
           <span className="font-pixel text-sm text-foreground">Dehtyar Agent</span>
         </div>
         <button
@@ -61,7 +62,7 @@ export function AgentChat({ agentId, className = "" }: AgentChatProps) {
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
         {messages.length === 0 && (
           <div className="text-center text-muted-foreground py-8">
-            <Bot className="w-12 h-12 mx-auto mb-4 opacity-50" />
+            <img src={dehtyarChat} alt="Dehtyar" className="w-16 h-16 mx-auto mb-4 opacity-80" />
             <p className="font-pixel text-sm">I am Dehtyar, your autonomous AI agent.</p>
             <p className="text-xs mt-2">Ask me anything or give me a task to accomplish.</p>
           </div>
@@ -73,8 +74,8 @@ export function AgentChat({ agentId, className = "" }: AgentChatProps) {
             className={`flex gap-3 ${message.role === "user" ? "justify-end" : "justify-start"}`}
           >
             {message.role === "assistant" && (
-              <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center flex-shrink-0">
-                <Bot className="w-4 h-4 text-primary" />
+              <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0">
+                <img src={dehtyarChat} alt="Dehtyar" className="w-8 h-8" />
               </div>
             )}
             
@@ -98,8 +99,8 @@ export function AgentChat({ agentId, className = "" }: AgentChatProps) {
         
         {isLoading && messages[messages.length - 1]?.role !== "assistant" && (
           <div className="flex gap-3 justify-start">
-            <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center flex-shrink-0">
-              <Bot className="w-4 h-4 text-primary" />
+            <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0">
+              <img src={dehtyarChat} alt="Dehtyar" className="w-8 h-8" />
             </div>
             <div className="bg-muted/50 rounded-lg px-4 py-2 border border-border/50">
               <Loader2 className="w-4 h-4 animate-spin text-primary" />
