@@ -16,30 +16,42 @@ export type Database = {
     Tables: {
       agent_memory: {
         Row: {
+          access_count: number | null
           agent_id: string | null
           content: string
           created_at: string
+          decay_factor: number | null
+          embedding: string | null
           id: string
           importance: number | null
           last_accessed: string
+          memory_category: string | null
           memory_type: string
         }
         Insert: {
+          access_count?: number | null
           agent_id?: string | null
           content: string
           created_at?: string
+          decay_factor?: number | null
+          embedding?: string | null
           id?: string
           importance?: number | null
           last_accessed?: string
+          memory_category?: string | null
           memory_type: string
         }
         Update: {
+          access_count?: number | null
           agent_id?: string | null
           content?: string
           created_at?: string
+          decay_factor?: number | null
+          embedding?: string | null
           id?: string
           importance?: number | null
           last_accessed?: string
+          memory_category?: string | null
           memory_type?: string
         }
         Relationships: [
