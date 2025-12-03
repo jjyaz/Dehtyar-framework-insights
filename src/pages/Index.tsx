@@ -5,12 +5,14 @@ import { ScrollIndicator } from "@/components/ScrollIndicator";
 import { Sparkles } from "@/components/Sparkles";
 import { PixelButton } from "@/components/PixelButton";
 import { AgentChat } from "@/components/AgentChat";
+import { AgentSelector, Agent } from "@/components/AgentSelector";
 import { DocumentationScroll } from "@/components/DocumentationScroll";
 import { Brain, Users, MessageSquare, ScrollText, Wrench, Eye } from "lucide-react";
 
 const Index = () => {
   const [showChat, setShowChat] = useState(false);
   const [showDocs, setShowDocs] = useState(false);
+  const [selectedAgent, setSelectedAgent] = useState<Agent | null>(null);
 
   const scrollToFeatures = () => {
     document.getElementById('features')?.scrollIntoView({ behavior: 'smooth' });
@@ -281,8 +283,25 @@ const Index = () => {
       {/* Agent Chat Modal */}
       {showChat && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-          <div className="relative w-full max-w-2xl h-[600px] animate-fade-up">
-            <AgentChat className="h-full" onClose={() => setShowChat(false)} />
+          <div className="relative w-full max-w-2xl animate-fade-up">
+            {selectedAgent ? (
+              <div className="h-[600px]">
+                <AgentChat 
+                  selectedAgent={selectedAgent}
+                  className="h-full" 
+                  onClose={() => {
+                    setShowChat(false);
+                    setSelectedAgent(null);
+                  }}
+                  onBack={() => setSelectedAgent(null)}
+                />
+              </div>
+            ) : (
+              <AgentSelector 
+                onSelect={(agent) => setSelectedAgent(agent)}
+                onClose={() => setShowChat(false)}
+              />
+            )}
           </div>
         </div>
       )}
