@@ -5,10 +5,12 @@ import { ScrollIndicator } from "@/components/ScrollIndicator";
 import { Sparkles } from "@/components/Sparkles";
 import { PixelButton } from "@/components/PixelButton";
 import { AgentChat } from "@/components/AgentChat";
+import { DocumentationScroll } from "@/components/DocumentationScroll";
 import { Brain, Users, MessageSquare, ScrollText, Wrench, Eye } from "lucide-react";
 
 const Index = () => {
   const [showChat, setShowChat] = useState(false);
+  const [showDocs, setShowDocs] = useState(false);
 
   const features = [
     {
@@ -209,9 +211,9 @@ const Index = () => {
             DEHTYAR FRAMEWORK © 2024
           </p>
           <div className="flex gap-6">
-            <a href="#" className="font-medieval text-lg text-muted-foreground hover:text-primary transition-colors">
+            <button onClick={() => setShowDocs(true)} className="font-medieval text-lg text-muted-foreground hover:text-primary transition-colors">
               Documentation
-            </a>
+            </button>
             <a href="https://github.com/jjyaz/Dehtyar-framework-insights" target="_blank" rel="noopener noreferrer" className="font-medieval text-lg text-muted-foreground hover:text-primary transition-colors">
               GitHub
             </a>
@@ -227,6 +229,15 @@ const Index = () => {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
           <div className="relative w-full max-w-2xl h-[600px] animate-fade-up">
             <AgentChat className="h-full" onClose={() => setShowChat(false)} />
+          </div>
+        </div>
+      )}
+
+      {/* Documentation Modal */}
+      {showDocs && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+          <div className="animate-fade-up">
+            <DocumentationScroll onClose={() => setShowDocs(false)} />
           </div>
         </div>
       )}
