@@ -257,8 +257,248 @@ serve(async (req) => {
         break;
       }
 
+      // === PHASE 3: TASK DECOMPOSITION TOOLS ===
+      
+      case "create_task": {
+        const title = toolInput.title as string;
+        const description = toolInput.description as string;
+        const priority = (toolInput.priority as number) || 0;
+        const parentTaskId = toolInput.parent_task_id as string;
+        
+        if (!title) {
+          result = "Error: Task title is required";
+          break;
+        }
+        
+        const { data: task, error } = await supabase
+          .from("tasks")
+          .insert({
+            title,
+            description,
+            priority,
+            parent_task_id: parentTaskId || null,
+            agent_id: agentId,
+            status: "pending"
+          })
+          .select()
+          .single();
+        
+        if (error) {
+          result = `Error creating task: ${error.message}`;
+        } else {
+          result = `[Task Created]\nID: ${task.id}\nTitle: ${title}\nPriority: ${priority}\nStatus: pending${parentTaskId ? `\nParent Task: ${parentTaskId}` : ""}`;
+        }
+        break;
+      }
+      
+      case "decompose_task": {
+        const goalTitle = toolInput.goal as string;
+        const goalDescription = toolInput.description as string;
+        const subtasks = toolInput.subtasks as Array<{ title: string; description?: string; priority?: number }>;
+        
+        if (!goalTitle || !subtasks || subtasks.length === 0) {
+          result = "Error: Goal title and subtasks array are required";
+          break;
+        }
+        
+        // Create parent task
+        const { data: parentTask, error: parentError } = await supabase
+          .from("tasks")
+          .insert({
+            title: goalTitle,
+            description: goalDescription,
+            agent_id: agentId,
+            status: "in_progress",
+            priority: 1
+          })
+          .select()
+          .single();
+        
+        if (parentError) {
+          result = `Error creating parent task: ${parentError.message}`;
+          break;
+        }
+        
+        // Create subtasks
+        const subtaskInserts = subtasks.map((st, index) => ({
+          title: st.title,
+          description: st.description || null,
+          priority: st.priority ?? index,
+          parent_task_id: parentTask.id,
+          agent_id: agentId,
+          status: "pending"
+        }));
+        
+        const { data: createdSubtasks, error: subtaskError } = await supabase
+          .from("tasks")
+          .insert(subtaskInserts)
+          .select();
+        
+        if (subtaskError) {
+          result = `Parent task created but error creating subtasks: ${subtaskError.message}`;
+        } else {
+          result = `[Task Decomposed]\nGoal: ${goalTitle}\nID: ${parentTask.id}\n\nSubtasks created (${createdSubtasks.length}):\n` +
+            createdSubtasks.map((st, i) => `  ${i + 1}. ${st.title} (ID: ${st.id})`).join("\n");
+        }
+        break;
+      }
+      
+      case "list_tasks": {
+        const statusFilter = toolInput.status as string;
+        const parentOnly = toolInput.parent_only as boolean;
+        
+        let query = supabase
+          .from("tasks")
+          .select("id, title, description, status, priority, parent_task_id, created_at")
+          .eq("agent_id", agentId)
+          .order("priority", { ascending: false })
+          .order("created_at", { ascending: false })
+          .limit(20);
+        
+        if (statusFilter) {
+          query = query.eq("status", statusFilter);
+        }
+        
+        if (parentOnly) {
+          query = query.is("parent_task_id", null);
+        }
+        
+        const { data: tasks, error } = await query;
+        
+        if (error) {
+          result = `Error listing tasks: ${error.message}`;
+        } else if (!tasks || tasks.length === 0) {
+          result = "No tasks found.";
+        } else {
+          result = "[Current Tasks]\n" +
+            tasks.map((t, i) => {
+              const statusIcon = t.status === "completed" ? "✅" : t.status === "in_progress" ? "🔄" : "⏳";
+              return `${i + 1}. ${statusIcon} ${t.title}\n   ID: ${t.id}\n   Status: ${t.status}${t.parent_task_id ? "\n   (subtask)" : ""}`;
+            }).join("\n\n");
+        }
+        break;
+      }
+      
+      case "get_task": {
+        const taskId = toolInput.task_id as string;
+        
+        if (!taskId) {
+          result = "Error: task_id is required";
+          break;
+        }
+        
+        // Get task with its subtasks
+        const { data: task, error: taskError } = await supabase
+          .from("tasks")
+          .select("*")
+          .eq("id", taskId)
+          .single();
+        
+        if (taskError || !task) {
+          result = `Error: Task not found (${taskId})`;
+          break;
+        }
+        
+        const { data: subtasks } = await supabase
+          .from("tasks")
+          .select("id, title, status, priority")
+          .eq("parent_task_id", taskId)
+          .order("priority", { ascending: true });
+        
+        const statusIcon = task.status === "completed" ? "✅" : task.status === "in_progress" ? "🔄" : "⏳";
+        result = `[Task Details]\n${statusIcon} ${task.title}\nID: ${task.id}\nStatus: ${task.status}\nPriority: ${task.priority}\nDescription: ${task.description || "None"}`;
+        
+        if (subtasks && subtasks.length > 0) {
+          const completed = subtasks.filter(s => s.status === "completed").length;
+          result += `\n\nSubtasks (${completed}/${subtasks.length} completed):\n` +
+            subtasks.map((st, i) => {
+              const stIcon = st.status === "completed" ? "✅" : st.status === "in_progress" ? "🔄" : "⏳";
+              return `  ${i + 1}. ${stIcon} ${st.title}`;
+            }).join("\n");
+        }
+        break;
+      }
+      
+      case "update_task": {
+        const taskId = toolInput.task_id as string;
+        const newStatus = toolInput.status as string;
+        const newResult = toolInput.result as any;
+        
+        if (!taskId) {
+          result = "Error: task_id is required";
+          break;
+        }
+        
+        const updates: Record<string, any> = {};
+        if (newStatus) {
+          updates.status = newStatus;
+          if (newStatus === "completed") {
+            updates.completed_at = new Date().toISOString();
+          }
+        }
+        if (newResult !== undefined) {
+          updates.result = newResult;
+        }
+        
+        const { data: updatedTask, error } = await supabase
+          .from("tasks")
+          .update(updates)
+          .eq("id", taskId)
+          .select()
+          .single();
+        
+        if (error) {
+          result = `Error updating task: ${error.message}`;
+        } else {
+          result = `[Task Updated]\nID: ${taskId}\nNew Status: ${updatedTask.status}${updatedTask.completed_at ? `\nCompleted: ${updatedTask.completed_at}` : ""}`;
+          
+          // Check if all subtasks of parent are complete
+          if (updatedTask.parent_task_id && newStatus === "completed") {
+            const { data: siblings } = await supabase
+              .from("tasks")
+              .select("status")
+              .eq("parent_task_id", updatedTask.parent_task_id);
+            
+            if (siblings && siblings.every(s => s.status === "completed")) {
+              await supabase
+                .from("tasks")
+                .update({ status: "completed", completed_at: new Date().toISOString() })
+                .eq("id", updatedTask.parent_task_id);
+              result += "\n\n✅ All subtasks complete - parent task marked as completed!";
+            }
+          }
+        }
+        break;
+      }
+      
+      case "get_next_task": {
+        // Get the next pending task to work on
+        const { data: nextTask, error } = await supabase
+          .from("tasks")
+          .select("id, title, description, priority, parent_task_id")
+          .eq("agent_id", agentId)
+          .eq("status", "pending")
+          .order("priority", { ascending: false })
+          .order("created_at", { ascending: true })
+          .limit(1)
+          .single();
+        
+        if (error || !nextTask) {
+          result = "No pending tasks found. All tasks are complete or none exist.";
+        } else {
+          // Mark as in progress
+          await supabase
+            .from("tasks")
+            .update({ status: "in_progress" })
+            .eq("id", nextTask.id);
+          
+          result = `[Next Task to Work On]\nTitle: ${nextTask.title}\nID: ${nextTask.id}\nPriority: ${nextTask.priority}\nDescription: ${nextTask.description || "None"}\n\nTask is now marked as in_progress.`;
+        }
+        break;
+      }
+
       default:
-        result = `Unknown tool: ${toolName}. Available tools: web_search, fetch_url, get_datetime, calculator, memory_store, memory_recall`;
+        result = `Unknown tool: ${toolName}. Available tools: web_search, fetch_url, get_datetime, calculator, memory_store, memory_recall, create_task, decompose_task, list_tasks, get_task, update_task, get_next_task`;
     }
 
     console.log(`Tool ${toolName} result:`, result.substring(0, 200));
