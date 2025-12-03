@@ -2,95 +2,105 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
-All colors MUST be HSL.
-*/
-
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
+    /* Parchment & Medieval Theme */
+    --background: 35 30% 88%;
+    --foreground: 25 35% 15%;
 
-    --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
+    --card: 35 35% 82%;
+    --card-foreground: 25 35% 15%;
 
-    --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
+    --popover: 35 30% 85%;
+    --popover-foreground: 25 35% 15%;
 
-    --primary: 222.2 47.4% 11.2%;
-    --primary-foreground: 210 40% 98%;
+    /* Hot pink accent from Dehtyar */
+    --primary: 340 85% 60%;
+    --primary-foreground: 35 30% 95%;
 
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
+    /* Darker parchment for secondary */
+    --secondary: 30 25% 70%;
+    --secondary-foreground: 25 35% 15%;
 
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
+    --muted: 30 20% 75%;
+    --muted-foreground: 25 20% 40%;
 
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
+    /* Pink glow accent */
+    --accent: 340 75% 65%;
+    --accent-foreground: 35 30% 95%;
 
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
+    --destructive: 0 70% 50%;
+    --destructive-foreground: 35 30% 95%;
 
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 222.2 84% 4.9%;
+    /* Parchment borders */
+    --border: 30 25% 60%;
+    --input: 30 25% 65%;
+    --ring: 340 85% 60%;
 
-    --radius: 0.5rem;
+    --radius: 0.25rem;
 
-    --sidebar-background: 0 0% 98%;
+    /* Custom medieval colors */
+    --parchment-light: 35 35% 92%;
+    --parchment: 35 30% 85%;
+    --parchment-dark: 30 25% 70%;
+    --ink: 25 40% 12%;
+    --gold: 45 80% 50%;
+    --pink-glow: 340 85% 60%;
+    --pink-soft: 340 60% 75%;
 
-    --sidebar-foreground: 240 5.3% 26.1%;
-
-    --sidebar-primary: 240 5.9% 10%;
-
-    --sidebar-primary-foreground: 0 0% 98%;
-
-    --sidebar-accent: 240 4.8% 95.9%;
-
-    --sidebar-accent-foreground: 240 5.9% 10%;
-
-    --sidebar-border: 220 13% 91%;
-
-    --sidebar-ring: 217.2 91.2% 59.8%;
+    --sidebar-background: 30 25% 80%;
+    --sidebar-foreground: 25 35% 15%;
+    --sidebar-primary: 340 85% 60%;
+    --sidebar-primary-foreground: 35 30% 95%;
+    --sidebar-accent: 30 20% 75%;
+    --sidebar-accent-foreground: 25 35% 15%;
+    --sidebar-border: 30 25% 60%;
+    --sidebar-ring: 340 85% 60%;
   }
 
   .dark {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
+    /* Dark parchment theme */
+    --background: 25 30% 10%;
+    --foreground: 35 25% 85%;
 
-    --card: 222.2 84% 4.9%;
-    --card-foreground: 210 40% 98%;
+    --card: 25 25% 15%;
+    --card-foreground: 35 25% 85%;
 
-    --popover: 222.2 84% 4.9%;
-    --popover-foreground: 210 40% 98%;
+    --popover: 25 25% 12%;
+    --popover-foreground: 35 25% 85%;
 
-    --primary: 210 40% 98%;
-    --primary-foreground: 222.2 47.4% 11.2%;
+    --primary: 340 85% 60%;
+    --primary-foreground: 25 30% 10%;
 
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
+    --secondary: 25 20% 20%;
+    --secondary-foreground: 35 25% 85%;
 
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
+    --muted: 25 20% 18%;
+    --muted-foreground: 35 15% 55%;
 
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
+    --accent: 340 75% 55%;
+    --accent-foreground: 25 30% 10%;
 
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
+    --destructive: 0 65% 45%;
+    --destructive-foreground: 35 25% 90%;
 
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 212.7 26.8% 83.9%;
-    --sidebar-background: 240 5.9% 10%;
-    --sidebar-foreground: 240 4.8% 95.9%;
-    --sidebar-primary: 224.3 76.3% 48%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 240 3.7% 15.9%;
-    --sidebar-accent-foreground: 240 4.8% 95.9%;
-    --sidebar-border: 240 3.7% 15.9%;
-    --sidebar-ring: 217.2 91.2% 59.8%;
+    --border: 25 20% 25%;
+    --input: 25 20% 22%;
+    --ring: 340 85% 60%;
+
+    --parchment-light: 25 25% 18%;
+    --parchment: 25 25% 14%;
+    --parchment-dark: 25 20% 10%;
+    --ink: 35 25% 90%;
+
+    --sidebar-background: 25 25% 12%;
+    --sidebar-foreground: 35 25% 85%;
+    --sidebar-primary: 340 85% 60%;
+    --sidebar-primary-foreground: 25 30% 10%;
+    --sidebar-accent: 25 20% 20%;
+    --sidebar-accent-foreground: 35 25% 85%;
+    --sidebar-border: 25 20% 25%;
+    --sidebar-ring: 340 85% 60%;
   }
 }
 
@@ -100,6 +110,82 @@ All colors MUST be HSL.
   }
 
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground font-medieval;
+  }
+
+  /* Custom scrollbar for parchment feel */
+  ::-webkit-scrollbar {
+    width: 12px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: hsl(var(--parchment-dark));
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: hsl(var(--border));
+    border-radius: 6px;
+    border: 2px solid hsl(var(--parchment-dark));
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--primary));
+  }
+}
+
+@layer components {
+  .parchment-texture {
+    background: 
+      linear-gradient(180deg, 
+        hsl(var(--parchment-light)) 0%, 
+        hsl(var(--parchment)) 20%,
+        hsl(var(--parchment)) 80%,
+        hsl(var(--parchment-dark)) 100%
+      );
+    background-size: 100% 100%;
+    position: relative;
+  }
+
+  .parchment-texture::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+    opacity: 0.08;
+    pointer-events: none;
+  }
+
+  .pixel-border {
+    box-shadow: 
+      4px 0 0 0 hsl(var(--ink)),
+      -4px 0 0 0 hsl(var(--ink)),
+      0 4px 0 0 hsl(var(--ink)),
+      0 -4px 0 0 hsl(var(--ink)),
+      4px 4px 0 0 hsl(var(--ink)),
+      -4px 4px 0 0 hsl(var(--ink)),
+      4px -4px 0 0 hsl(var(--ink)),
+      -4px -4px 0 0 hsl(var(--ink));
+  }
+
+  .glow-pink {
+    filter: drop-shadow(0 0 8px hsl(var(--pink-glow) / 0.6))
+            drop-shadow(0 0 20px hsl(var(--pink-glow) / 0.4));
+  }
+
+  .text-glow-pink {
+    text-shadow: 
+      0 0 10px hsl(var(--pink-glow) / 0.8),
+      0 0 20px hsl(var(--pink-glow) / 0.5),
+      0 0 40px hsl(var(--pink-glow) / 0.3);
+  }
+}
+
+@layer utilities {
+  .font-pixel {
+    font-family: 'Press Start 2P', cursive;
+  }
+
+  .font-medieval {
+    font-family: 'VT323', monospace;
   }
 }
