@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { X, Loader2 } from "lucide-react";
+import { getAgentAvatars } from "@/lib/avatarMap";
 
 export interface Agent {
   id: string;
@@ -66,29 +67,34 @@ export function AgentSelector({ onSelect, onClose }: AgentSelectorProps) {
           </div>
         ) : (
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {agents.map((agent) => (
-              <button
-                key={agent.id}
-                onClick={() => onSelect(agent)}
-                className="flex flex-col items-center p-4 rounded-lg border border-border/50 bg-muted/30 hover:bg-muted/60 hover:border-primary/50 transition-all group"
-              >
-                {agent.avatar_url ? (
-                  <img
-                    src={agent.avatar_url}
-                    alt={agent.name}
-                    className="w-20 h-20 mb-3 group-hover:scale-105 transition-transform"
-                  />
-                ) : (
-                  <div className="w-20 h-20 mb-3 bg-muted rounded-full flex items-center justify-center">
-                    <span className="font-pixel text-2xl text-muted-foreground">
-                      {agent.name.charAt(0)}
-                    </span>
-                  </div>
-                )}
-                <span className="font-pixel text-xs text-foreground">{agent.name}</span>
-                <span className="text-[10px] text-muted-foreground capitalize">{agent.role}</span>
-              </button>
-            ))}
+            {agents.map((agent) => {
+              const avatars = getAgentAvatars(agent.name);
+              const avatarSrc = avatars.avatar;
+              
+              return (
+                <button
+                  key={agent.id}
+                  onClick={() => onSelect(agent)}
+                  className="flex flex-col items-center p-4 rounded-lg border border-border/50 bg-muted/30 hover:bg-muted/60 hover:border-primary/50 transition-all group"
+                >
+                  {avatarSrc ? (
+                    <img
+                      src={avatarSrc}
+                      alt={agent.name}
+                      className="w-20 h-20 mb-3 group-hover:scale-105 transition-transform"
+                    />
+                  ) : (
+                    <div className="w-20 h-20 mb-3 bg-muted rounded-full flex items-center justify-center">
+                      <span className="font-pixel text-2xl text-muted-foreground">
+                        {agent.name.charAt(0)}
+                      </span>
+                    </div>
+                  )}
+                  <span className="font-pixel text-xs text-foreground">{agent.name}</span>
+                  <span className="text-[10px] text-muted-foreground capitalize">{agent.role}</span>
+                </button>
+              );
+            })}
           </div>
         )}
       </div>

@@ -4,6 +4,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Send, X, Trash2, User, Loader2, Brain, ChevronDown, ChevronUp, Wrench, ArrowLeft } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Agent } from "@/components/AgentSelector";
+import { getAgentAvatars } from "@/lib/avatarMap";
 
 interface AgentChatProps {
   selectedAgent: Agent;
@@ -75,7 +76,8 @@ export function AgentChat({ selectedAgent, className = "", onClose, onBack }: Ag
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
 
-  const agentAvatar = selectedAgent.chat_avatar_url || selectedAgent.avatar_url;
+  const avatars = getAgentAvatars(selectedAgent.name);
+  const agentAvatar = avatars.chatAvatar || avatars.avatar;
 
   const { 
     messages, 
