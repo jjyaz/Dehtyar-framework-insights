@@ -294,7 +294,7 @@ const Index = () => {
               GitHub
             </a>
             <a href="#" className="font-medieval text-lg text-muted-foreground hover:text-primary transition-colors">
-              Discord
+              Community
             </a>
           </div>
         </div>
