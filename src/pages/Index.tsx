@@ -284,7 +284,7 @@ const Index = () => {
       <footer className="py-8 px-6 border-t border-border">
         <div className="max-w-4xl mx-auto flex flex-col md:flex-row justify-between items-center gap-4">
           <p className="font-pixel text-[8px] text-muted-foreground">
-            DEHTYAR FRAMEWORK © 2024
+            DEHTYAR FRAMEWORK © 2025
           </p>
           <div className="flex gap-6">
             <button onClick={() => setShowDocs(true)} className="font-medieval text-lg text-muted-foreground hover:text-primary transition-colors">
