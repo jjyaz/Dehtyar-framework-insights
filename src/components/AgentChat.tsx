@@ -1,14 +1,15 @@
 import { useState, useRef, useEffect } from "react";
 import { useAgentChat, ReasoningStep } from "@/hooks/useAgentChat";
 import { useToast } from "@/hooks/use-toast";
-import { Send, X, Trash2, User, Loader2, Brain, ChevronDown, ChevronUp, Wrench } from "lucide-react";
+import { Send, X, Trash2, User, Loader2, Brain, ChevronDown, ChevronUp, Wrench, ArrowLeft } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import dehtyarChat from "@/assets/dehtyar-chat.png";
+import { Agent } from "@/components/AgentSelector";
 
 interface AgentChatProps {
-  agentId?: string;
+  selectedAgent: Agent;
   className?: string;
   onClose?: () => void;
+  onBack?: () => void;
 }
 
 function ReasoningPanel({ steps, currentStep, isThinking }: { 
@@ -69,10 +70,12 @@ function ReasoningPanel({ steps, currentStep, isThinking }: {
   );
 }
 
-export function AgentChat({ agentId, className = "", onClose }: AgentChatProps) {
+export function AgentChat({ selectedAgent, className = "", onClose, onBack }: AgentChatProps) {
   const [input, setInput] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
+
+  const agentAvatar = selectedAgent.chat_avatar_url || selectedAgent.avatar_url;
 
   const { 
     messages, 
@@ -83,7 +86,7 @@ export function AgentChat({ agentId, className = "", onClose }: AgentChatProps) 
     reasoningSteps,
     currentStep,
   } = useAgentChat({
-    agentId,
+    agentId: selectedAgent.id,
     onError: (error) => {
       toast({
         title: "Error",
@@ -114,9 +117,24 @@ export function AgentChat({ agentId, className = "", onClose }: AgentChatProps) 
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-border/50 bg-background/80">
         <div className="flex items-center gap-2">
-          <img src={dehtyarChat} alt="Dehtyar" className="w-10 h-10" />
+          {onBack && (
+            <button
+              onClick={onBack}
+              className="p-2 hover:bg-muted rounded-md transition-colors"
+              title="Back to agents"
+            >
+              <ArrowLeft className="w-4 h-4 text-muted-foreground" />
+            </button>
+          )}
+          {agentAvatar ? (
+            <img src={agentAvatar} alt={selectedAgent.name} className="w-10 h-10" />
+          ) : (
+            <div className="w-10 h-10 bg-muted rounded-full flex items-center justify-center">
+              <span className="font-pixel text-lg">{selectedAgent.name.charAt(0)}</span>
+            </div>
+          )}
           <div className="flex flex-col">
-            <span className="font-pixel text-sm text-foreground">Dehtyar Agent</span>
+            <span className="font-pixel text-sm text-foreground">{selectedAgent.name}</span>
             {isThinking && (
               <span className="text-xs text-primary flex items-center gap-1">
                 <Brain className="w-3 h-3 animate-pulse" />
@@ -152,8 +170,14 @@ export function AgentChat({ agentId, className = "", onClose }: AgentChatProps) 
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
         {messages.length === 0 && (
           <div className="text-center text-muted-foreground py-8">
-            <img src={dehtyarChat} alt="Dehtyar" className="w-24 h-24 mx-auto mb-4 opacity-80" />
-            <p className="font-pixel text-sm">I am Dehtyar, your autonomous AI agent.</p>
+            {agentAvatar ? (
+              <img src={agentAvatar} alt={selectedAgent.name} className="w-24 h-24 mx-auto mb-4 opacity-80" />
+            ) : (
+              <div className="w-24 h-24 mx-auto mb-4 bg-muted rounded-full flex items-center justify-center">
+                <span className="font-pixel text-4xl">{selectedAgent.name.charAt(0)}</span>
+              </div>
+            )}
+            <p className="font-pixel text-sm">I am {selectedAgent.name}, your autonomous AI agent.</p>
             <p className="text-xs mt-2">I think step-by-step and can use tools to help you.</p>
             <p className="text-xs mt-1 text-muted-foreground/70">Ask me anything or give me a task to accomplish.</p>
           </div>
@@ -166,7 +190,13 @@ export function AgentChat({ agentId, className = "", onClose }: AgentChatProps) 
           >
             {message.role === "assistant" && (
               <div className="w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0">
-                <img src={dehtyarChat} alt="Dehtyar" className="w-12 h-12" />
+                {agentAvatar ? (
+                  <img src={agentAvatar} alt={selectedAgent.name} className="w-12 h-12" />
+                ) : (
+                  <div className="w-12 h-12 bg-muted rounded-full flex items-center justify-center">
+                    <span className="font-pixel text-lg">{selectedAgent.name.charAt(0)}</span>
+                  </div>
+                )}
               </div>
             )}
             
@@ -198,7 +228,13 @@ export function AgentChat({ agentId, className = "", onClose }: AgentChatProps) 
         {isLoading && messages[messages.length - 1]?.role !== "assistant" && (
           <div className="flex gap-3 justify-start">
             <div className="w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0">
-              <img src={dehtyarChat} alt="Dehtyar" className="w-12 h-12" />
+              {agentAvatar ? (
+                <img src={agentAvatar} alt={selectedAgent.name} className="w-12 h-12" />
+              ) : (
+                <div className="w-12 h-12 bg-muted rounded-full flex items-center justify-center">
+                  <span className="font-pixel text-lg">{selectedAgent.name.charAt(0)}</span>
+                </div>
+              )}
             </div>
             <div className="bg-muted/50 rounded-lg px-4 py-2 border border-border/50">
               <span className="flex items-center gap-2 text-sm">
@@ -219,7 +255,7 @@ export function AgentChat({ agentId, className = "", onClose }: AgentChatProps) 
             type="text"
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder="Ask Dehtyar anything..."
+            placeholder={`Ask ${selectedAgent.name} anything...`}
             className="flex-1 bg-muted/50 border border-border/50 rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 placeholder:text-muted-foreground"
             disabled={isLoading}
           />
