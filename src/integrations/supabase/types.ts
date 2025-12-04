@@ -64,58 +64,6 @@ export type Database = {
           },
         ]
       }
-      agent_messages: {
-        Row: {
-          content: string
-          council_session_id: string | null
-          created_at: string
-          from_agent_id: string | null
-          id: string
-          message_type: string
-          to_agent_id: string | null
-        }
-        Insert: {
-          content: string
-          council_session_id?: string | null
-          created_at?: string
-          from_agent_id?: string | null
-          id?: string
-          message_type?: string
-          to_agent_id?: string | null
-        }
-        Update: {
-          content?: string
-          council_session_id?: string | null
-          created_at?: string
-          from_agent_id?: string | null
-          id?: string
-          message_type?: string
-          to_agent_id?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "agent_messages_council_session_id_fkey"
-            columns: ["council_session_id"]
-            isOneToOne: false
-            referencedRelation: "council_sessions"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "agent_messages_from_agent_id_fkey"
-            columns: ["from_agent_id"]
-            isOneToOne: false
-            referencedRelation: "agents"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "agent_messages_to_agent_id_fkey"
-            columns: ["to_agent_id"]
-            isOneToOne: false
-            referencedRelation: "agents"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       agent_reasoning_steps: {
         Row: {
           action: Json
@@ -295,54 +243,6 @@ export type Database = {
           title?: string | null
         }
         Relationships: []
-      }
-      council_sessions: {
-        Row: {
-          active_agents: string[] | null
-          conversation_id: string | null
-          created_at: string
-          final_synthesis: string | null
-          id: string
-          lead_agent_id: string | null
-          status: string
-          user_request: string
-        }
-        Insert: {
-          active_agents?: string[] | null
-          conversation_id?: string | null
-          created_at?: string
-          final_synthesis?: string | null
-          id?: string
-          lead_agent_id?: string | null
-          status?: string
-          user_request: string
-        }
-        Update: {
-          active_agents?: string[] | null
-          conversation_id?: string | null
-          created_at?: string
-          final_synthesis?: string | null
-          id?: string
-          lead_agent_id?: string | null
-          status?: string
-          user_request?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "council_sessions_conversation_id_fkey"
-            columns: ["conversation_id"]
-            isOneToOne: false
-            referencedRelation: "conversations"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "council_sessions_lead_agent_id_fkey"
-            columns: ["lead_agent_id"]
-            isOneToOne: false
-            referencedRelation: "agents"
-            referencedColumns: ["id"]
-          },
-        ]
       }
       tasks: {
         Row: {

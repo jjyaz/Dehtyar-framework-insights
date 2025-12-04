@@ -111,176 +111,6 @@ async function executeToolCall(
   }
 }
 
-// Execute council tool (summon, delegate, request_insight, synthesize)
-async function executeCouncilTool(
-  supabase: any,
-  toolName: string,
-  toolInput: Record<string, unknown>,
-  councilSessionId: string,
-  fromAgentId: string,
-  sendEvent: (event: string, data: unknown) => Promise<void>
-): Promise<{ result: string; agentId?: string }> {
-  const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-  
-  if (toolName === "summon_agent") {
-    const agentName = toolInput.agent_name as string;
-    const reason = toolInput.reason as string;
-
-    // Find the agent to summon
-    const { data: targetAgent } = await supabase
-      .from("agents")
-      .select("*")
-      .eq("name", agentName)
-      .single();
-
-    if (!targetAgent) {
-      return { result: `Agent ${agentName} not found` };
-    }
-
-    // Record the summon message
-    await supabase.from("agent_messages").insert({
-      council_session_id: councilSessionId,
-      from_agent_id: fromAgentId,
-      to_agent_id: targetAgent.id,
-      message_type: "summon",
-      content: `I summon ${agentName} to the council. Reason: ${reason}`,
-    });
-
-    // Update council session with new agent
-    const { data: session } = await supabase
-      .from("council_sessions")
-      .select("active_agents")
-      .eq("id", councilSessionId)
-      .single();
-
-    const activeAgents = session?.active_agents || [];
-    if (!activeAgents.includes(targetAgent.id)) {
-      await supabase
-        .from("council_sessions")
-        .update({ active_agents: [...activeAgents, targetAgent.id] })
-        .eq("id", councilSessionId);
-    }
-
-    await sendEvent("agent_summoned", {
-      agentId: targetAgent.id,
-      agentName: targetAgent.name,
-      avatar_url: targetAgent.avatar_url,
-      chat_avatar_url: targetAgent.chat_avatar_url,
-      reason,
-    });
-
-    return { result: `${agentName} has joined the council`, agentId: targetAgent.id };
-  }
-
-  if (toolName === "delegate_task" || toolName === "request_insight") {
-    const agentName = toolInput.agent_name as string;
-    const task = (toolInput.task || toolInput.topic) as string;
-    const context = toolInput.context as string || "";
-
-    // Find the target agent
-    const { data: targetAgent } = await supabase
-      .from("agents")
-      .select("*")
-      .eq("name", agentName)
-      .single();
-
-    if (!targetAgent) {
-      return { result: `Agent ${agentName} not found` };
-    }
-
-    // Record the delegation/request message
-    const messageType = toolName === "delegate_task" ? "delegate" : "insight";
-    await supabase.from("agent_messages").insert({
-      council_session_id: councilSessionId,
-      from_agent_id: fromAgentId,
-      to_agent_id: targetAgent.id,
-      message_type: messageType,
-      content: toolName === "delegate_task" 
-        ? `${agentName}, I delegate this task to you: ${task}. ${context}`
-        : `${agentName}, I seek your insight on: ${task}`,
-    });
-
-    await sendEvent("agent_thinking", { agentId: targetAgent.id, agentName });
-
-    // Get response from the target agent
-    const agentResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: targetAgent.model || "google/gemini-2.5-flash",
-        messages: [
-          {
-            role: "system",
-            content: targetAgent.system_prompt + "\n\nYou are participating in a council discussion. Respond concisely but with your unique perspective. Keep responses under 200 words.",
-          },
-          {
-            role: "user",
-            content: toolName === "delegate_task"
-              ? `Task delegated to you: ${task}\nContext: ${context}\nProvide your approach and insights.`
-              : `The lead agent seeks your insight on: ${task}\nShare your unique perspective.`,
-          },
-        ],
-      }),
-    });
-
-    if (!agentResponse.ok) {
-      return { result: `${agentName} failed to respond` };
-    }
-
-    const responseData = await agentResponse.json();
-    const agentReply = responseData.choices?.[0]?.message?.content || "No response";
-
-    // Record the agent's response
-    await supabase.from("agent_messages").insert({
-      council_session_id: councilSessionId,
-      from_agent_id: targetAgent.id,
-      to_agent_id: fromAgentId,
-      message_type: "response",
-      content: agentReply,
-    });
-
-    await sendEvent("agent_message", {
-      fromAgentId: targetAgent.id,
-      fromAgentName: targetAgent.name,
-      content: agentReply,
-      messageType: "response",
-    });
-
-    return { result: `${agentName} responds: ${agentReply}` };
-  }
-
-  if (toolName === "synthesize_council") {
-    const keyPoints = toolInput.key_points as string[];
-    const recommendation = toolInput.recommendation as string;
-
-    const synthesis = `**Council Synthesis**\n\nKey Points:\n${keyPoints.map((p, i) => `${i + 1}. ${p}`).join("\n")}\n\n**Recommendation:** ${recommendation}`;
-
-    // Record synthesis
-    await supabase.from("agent_messages").insert({
-      council_session_id: councilSessionId,
-      from_agent_id: fromAgentId,
-      to_agent_id: null,
-      message_type: "synthesis",
-      content: synthesis,
-    });
-
-    // Update session with final synthesis
-    await supabase
-      .from("council_sessions")
-      .update({ status: "concluded", final_synthesis: synthesis })
-      .eq("id", councilSessionId);
-
-    await sendEvent("council_synthesis", { synthesis });
-
-    return { result: synthesis };
-  }
-
-  return { result: "Unknown council tool" };
-}
-
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -367,38 +197,11 @@ serve(async (req) => {
     const { data: tools } = await supabase.from("agent_tools").select("name, description, parameters");
 
     const toolsContext = tools && tools.length > 0
-      ? "\n\n[AVAILABLE TOOLS]\n" + tools.map((t) => {
-          const params = t.parameters as { properties?: Record<string, { type: string; description?: string }>, required?: string[] };
-          const paramList = params?.properties 
-            ? Object.entries(params.properties)
-                .map(([k, v]) => `${k} (${v.type}${params?.required?.includes(k) ? ', required' : ''}): ${v.description || ''}`)
-                .join(', ')
-            : 'none';
-          return `- ${t.name}: ${t.description}\n  Parameters: {${paramList}}`;
-        }).join("\n")
+      ? "\n\n[AVAILABLE TOOLS]\n" + tools.map((t) => `- ${t.name}: ${t.description}`).join("\n")
       : "";
 
-    // Council-specific instructions for Dehtyar
-    const councilInstructions = agent.name === "Dehtyar" ? `
-    
-[COUNCIL SYSTEM]
-You are the lead agent and can summon other agents for collaborative tasks:
-- Dohar: Creative and chaotic. Summon for wild ideas, unconventional approaches, and creative projects.
-- Dehto: Oracle and strategic. Summon for deeper meaning, strategic wisdom, and cryptic insights.
-- Diyar: Bold adventurer. Summon for action plans, encouragement, and practical next steps.
-
-For CREATIVE PROJECTS or DECISION MAKING tasks, you SHOULD summon appropriate agents.
-Use summon_agent to bring agents to the council, then delegate_task or request_insight to get their input.
-Use synthesize_council to combine all perspectives into a final recommendation.
-
-When to use council:
-- Complex creative tasks → summon Dohar for ideas, Diyar for action
-- Strategic decisions → summon Dehto for wisdom, Diyar for practicality
-- Brainstorming → summon Dohar for creativity
-- Multi-faceted problems → summon multiple agents for diverse perspectives` : "";
-
     // Build initial messages
-    const systemPrompt = agent.system_prompt + memoryContext + toolsContext + councilInstructions +
+    const systemPrompt = agent.system_prompt + memoryContext + toolsContext +
       "\n\nIMPORTANT: You MUST use the agent_reasoning tool for EVERY response. " +
       "Structure your thinking with thought, plan, criticism, and action. " +
       "For complex tasks, use action.type='continue' to keep reasoning. " +
@@ -430,7 +233,6 @@ When to use council:
       let iteration = 0;
       let finalResponse = "";
       const reasoningHistory: string[] = [];
-      let councilSessionId: string | null = null;
 
       try {
         while (iteration < MAX_ITERATIONS) {
@@ -525,106 +327,38 @@ When to use council:
 
           // Handle action based on type
           if (reasoning.action.type === "tool" && reasoning.action.tool_name) {
-            const toolName = reasoning.action.tool_name;
-            const toolInput = reasoning.action.tool_input || {};
+            // Execute tool
+            await sendEvent("tool_call", {
+              tool: reasoning.action.tool_name,
+              input: reasoning.action.tool_input,
+            });
 
-            // Check if it's a council tool
-            const councilTools = ["summon_agent", "delegate_task", "request_insight", "synthesize_council"];
-            
-            if (councilTools.includes(toolName)) {
-              // Create council session if not exists
-              if (!councilSessionId) {
-                const { data: newSession } = await supabase
-                  .from("council_sessions")
-                  .insert({
-                    conversation_id: convId,
-                    lead_agent_id: agent.id,
-                    active_agents: [agent.id],
-                    status: "active",
-                    user_request: message,
-                  })
-                  .select()
-                  .single();
-                
-                councilSessionId = newSession?.id;
-                
-                await sendEvent("council_start", {
-                  sessionId: councilSessionId,
-                  leadAgentId: agent.id,
-                  leadAgentName: agent.name,
-                  userRequest: message,
-                });
-              }
+            const toolResult = await executeToolCall(
+              SUPABASE_URL!,
+              reasoning.action.tool_name,
+              reasoning.action.tool_input || {},
+              agent.id
+            );
 
-              await sendEvent("tool_call", {
-                tool: toolName,
-                input: toolInput,
-                isCouncil: true,
-              });
+            // Update reasoning step with result
+            await supabase
+              .from("agent_reasoning_steps")
+              .update({ action_result: toolResult })
+              .eq("conversation_id", convId)
+              .eq("step_number", iteration);
 
-              const councilResult = await executeCouncilTool(
-                supabase,
-                toolName,
-                toolInput,
-                councilSessionId!,
-                agent.id,
-                sendEvent
-              );
+            await sendEvent("tool_result", {
+              tool: reasoning.action.tool_name,
+              result: toolResult,
+            });
 
-              // Update reasoning step with result
-              await supabase
-                .from("agent_reasoning_steps")
-                .update({ action_result: councilResult.result })
-                .eq("conversation_id", convId)
-                .eq("step_number", iteration);
-
-              await sendEvent("tool_result", {
-                tool: toolName,
-                result: councilResult.result,
-                isCouncil: true,
-              });
-
-              // Add tool result to reasoning history
-              reasoningHistory.push(
-                `[Previous thought: ${reasoning.thought}]\n` +
-                `[Used council tool: ${toolName}]\n` +
-                `[Result: ${councilResult.result}]\n` +
-                `Continue reasoning with this council input.`
-              );
-            } else {
-              // Execute regular tool
-              await sendEvent("tool_call", {
-                tool: toolName,
-                input: toolInput,
-              });
-
-              const toolResult = await executeToolCall(
-                SUPABASE_URL!,
-                toolName,
-                toolInput,
-                agent.id
-              );
-
-              // Update reasoning step with result
-              await supabase
-                .from("agent_reasoning_steps")
-                .update({ action_result: toolResult })
-                .eq("conversation_id", convId)
-                .eq("step_number", iteration);
-
-              await sendEvent("tool_result", {
-                tool: toolName,
-                result: toolResult,
-              });
-
-              // Add tool result to reasoning history for next iteration
-              reasoningHistory.push(
-                `[Previous thought: ${reasoning.thought}]\n` +
-                `[Used tool: ${toolName}]\n` +
-                `[Tool result: ${toolResult}]\n` +
-                `Continue reasoning with this new information.`
-              );
-            }
+            // Add tool result to reasoning history for next iteration
+            reasoningHistory.push(
+              `[Previous thought: ${reasoning.thought}]\n` +
+              `[Used tool: ${reasoning.action.tool_name}]\n` +
+              `[Tool result: ${toolResult}]\n` +
+              `Continue reasoning with this new information.`
+            );
           } else if (reasoning.action.type === "continue") {
             // Add reasoning to history for continued thinking
             reasoningHistory.push(
