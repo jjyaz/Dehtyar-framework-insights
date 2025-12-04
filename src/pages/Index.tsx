@@ -174,15 +174,27 @@ const Index = () => {
     <div className="min-h-screen parchment-texture relative overflow-hidden">
       <Sparkles />
 
-      {/* GitHub Link - Top Left */}
-      <a
-        href="https://github.com/jjyaz/Dehtyar-framework-insights"
-        target="_blank"
-        rel="noopener noreferrer"
-        className="absolute top-4 left-4 z-50 p-2 bg-background/90 border-2 border-primary/50 rounded hover:border-primary hover:text-primary transition-colors"
-      >
-        <Github className="w-5 h-5" />
-      </a>
+      {/* Social Links - Top Left */}
+      <div className="absolute top-4 left-4 z-50 flex gap-2">
+        <a
+          href="https://github.com/jjyaz/Dehtyar-framework-insights"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="p-2 bg-background/90 border-2 border-primary/50 rounded hover:border-primary hover:text-primary transition-colors"
+        >
+          <Github className="w-5 h-5" />
+        </a>
+        <a
+          href="https://x.com/DehtyarAGI"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="p-2 bg-background/90 border-2 border-primary/50 rounded hover:border-primary hover:text-primary transition-colors"
+        >
+          <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
+          </svg>
+        </a>
+      </div>
 
       {/* CA Dropdown - Top Right */}
       <div className="absolute top-4 right-4 z-50">
