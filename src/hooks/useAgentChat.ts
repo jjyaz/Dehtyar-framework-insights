@@ -19,10 +19,16 @@ export interface ReasoningStep {
   toolResult?: string;
 }
 
+export interface CouncilEvent {
+  type: "council_start" | "agent_summoned" | "agent_message" | "agent_thinking" | "council_synthesis";
+  data: any;
+}
+
 interface UseAgentChatOptions {
   agentId?: string;
   conversationId?: string;
   onError?: (error: string) => void;
+  onCouncilEvent?: (event: CouncilEvent) => void;
 }
 
 export function useAgentChat(options: UseAgentChatOptions = {}) {
@@ -34,6 +40,8 @@ export function useAgentChat(options: UseAgentChatOptions = {}) {
   const [reasoningSteps, setReasoningSteps] = useState<ReasoningStep[]>([]);
   const [currentStep, setCurrentStep] = useState(0);
   const [isThinking, setIsThinking] = useState(false);
+  const [isCouncilActive, setIsCouncilActive] = useState(false);
+  const [councilSessionId, setCouncilSessionId] = useState<string | null>(null);
 
   const sendMessage = useCallback(
     async (message: string) => {
@@ -45,6 +53,8 @@ export function useAgentChat(options: UseAgentChatOptions = {}) {
       setIsThinking(true);
       setReasoningSteps([]);
       setCurrentStep(0);
+      setIsCouncilActive(false);
+      setCouncilSessionId(null);
 
       let assistantContent = "";
 
@@ -158,6 +168,23 @@ export function useAgentChat(options: UseAgentChatOptions = {}) {
                   }
                   return newSteps;
                 });
+              } else if (eventType === "council_start") {
+                const data = JSON.parse(eventData);
+                setIsCouncilActive(true);
+                setCouncilSessionId(data.sessionId);
+                options.onCouncilEvent?.({ type: "council_start", data });
+              } else if (eventType === "agent_summoned") {
+                const data = JSON.parse(eventData);
+                options.onCouncilEvent?.({ type: "agent_summoned", data });
+              } else if (eventType === "agent_message") {
+                const data = JSON.parse(eventData);
+                options.onCouncilEvent?.({ type: "agent_message", data });
+              } else if (eventType === "agent_thinking") {
+                const data = JSON.parse(eventData);
+                options.onCouncilEvent?.({ type: "agent_thinking", data });
+              } else if (eventType === "council_synthesis") {
+                const data = JSON.parse(eventData);
+                options.onCouncilEvent?.({ type: "council_synthesis", data });
               } else if (eventType === "error") {
                 const data = JSON.parse(eventData);
                 throw new Error(data.message);
@@ -249,6 +276,8 @@ export function useAgentChat(options: UseAgentChatOptions = {}) {
     setCurrentConversationId(null);
     setReasoningSteps([]);
     setCurrentStep(0);
+    setIsCouncilActive(false);
+    setCouncilSessionId(null);
   }, []);
 
   return {
@@ -260,5 +289,7 @@ export function useAgentChat(options: UseAgentChatOptions = {}) {
     conversationId: currentConversationId,
     reasoningSteps,
     currentStep,
+    isCouncilActive,
+    councilSessionId,
   };
 }
