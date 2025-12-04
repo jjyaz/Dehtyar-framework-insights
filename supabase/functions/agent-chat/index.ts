@@ -68,7 +68,8 @@ const agentReasoningTool = {
             },
             tool_input: {
               type: "object",
-              description: "Input parameters for the tool (if type=tool)",
+              description: "REQUIRED when type=tool. Must contain all required parameters for the tool. Check [AVAILABLE TOOLS] section for exact parameter names and types.",
+              additionalProperties: true,
             },
             message: {
               type: "string",
@@ -367,35 +368,40 @@ serve(async (req) => {
     const { data: tools } = await supabase.from("agent_tools").select("name, description, parameters");
 
     const toolsContext = tools && tools.length > 0
-      ? "\n\n[AVAILABLE TOOLS]\n" + tools.map((t) => {
+      ? "\n\n[AVAILABLE TOOLS]\nWhen using a tool, you MUST populate tool_input with the required parameters.\n" + tools.map((t) => {
           const params = t.parameters as { properties?: Record<string, { type: string; description?: string }>, required?: string[] };
           const paramList = params?.properties 
             ? Object.entries(params.properties)
-                .map(([k, v]) => `${k} (${v.type}${params?.required?.includes(k) ? ', required' : ''}): ${v.description || ''}`)
-                .join(', ')
+                .map(([k, v]) => `"${k}": ${v.type}${params?.required?.includes(k) ? ' (REQUIRED)' : ''} - ${v.description || 'no description'}`)
+                .join('\n    ')
             : 'none';
-          return `- ${t.name}: ${t.description}\n  Parameters: {${paramList}}`;
-        }).join("\n")
+          return `- ${t.name}: ${t.description}\n  tool_input: {\n    ${paramList}\n  }`;
+        }).join("\n\n")
       : "";
 
-    // Council-specific instructions for Dehtyar
     const councilInstructions = agent.name === "Dehtyar" ? `
     
-[COUNCIL SYSTEM]
-You are the lead agent and can summon other agents for collaborative tasks:
-- Dohar: Creative and chaotic. Summon for wild ideas, unconventional approaches, and creative projects.
-- Dehto: Oracle and strategic. Summon for deeper meaning, strategic wisdom, and cryptic insights.
-- Diyar: Bold adventurer. Summon for action plans, encouragement, and practical next steps.
+[COUNCIL SYSTEM - MULTI-AGENT COLLABORATION]
+You can summon other agents for collaborative tasks. Available agents (use EXACT names):
+- "Dohar" - Creative and chaotic. Summon for wild ideas, unconventional approaches, brainstorming.
+- "Dehto" - Oracle and strategic. Summon for deeper meaning, strategic wisdom, cryptic insights.
+- "Diyar" - Bold adventurer. Summon for action plans, encouragement, practical next steps.
 
-For CREATIVE PROJECTS or DECISION MAKING tasks, you SHOULD summon appropriate agents.
-Use summon_agent to bring agents to the council, then delegate_task or request_insight to get their input.
-Use synthesize_council to combine all perspectives into a final recommendation.
+To summon an agent, use action.type="tool" with:
+  tool_name: "summon_agent"
+  tool_input: { "agent_name": "Dohar", "reason": "Need creative brainstorming" }
 
-When to use council:
-- Complex creative tasks → summon Dohar for ideas, Diyar for action
-- Strategic decisions → summon Dehto for wisdom, Diyar for practicality
-- Brainstorming → summon Dohar for creativity
-- Multi-faceted problems → summon multiple agents for diverse perspectives` : "";
+After summoning, use delegate_task or request_insight:
+  tool_name: "request_insight"
+  tool_input: { "agent_name": "Dohar", "topic": "Creative ideas for the user's project" }
+
+Use synthesize_council when ready to conclude with all perspectives combined.
+
+WHEN TO USE COUNCIL:
+- Brainstorming or creative tasks → summon Dohar
+- Strategic decisions → summon Dehto
+- Action planning → summon Diyar
+- Complex problems → summon multiple agents` : "";
 
     // Build initial messages
     const systemPrompt = agent.system_prompt + memoryContext + toolsContext + councilInstructions +
