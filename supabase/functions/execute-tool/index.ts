@@ -843,8 +843,218 @@ serve(async (req) => {
         break;
       }
 
+      // === PHASE 5: COUNCIL/MULTI-AGENT TOOLS ===
+      
+      case "summon_agent": {
+        const agentName = toolInput.agent_name as string;
+        const reason = toolInput.reason as string;
+        
+        if (!agentName) {
+          result = "Error: agent_name is required. Valid agents: Dohar, Dehto, Diyar";
+          break;
+        }
+        
+        // Find the agent by name
+        const { data: targetAgent, error: agentError } = await supabase
+          .from("agents")
+          .select("id, name, role")
+          .ilike("name", agentName)
+          .single();
+        
+        if (agentError || !targetAgent) {
+          result = `Error: Agent "${agentName}" not found. Valid agents: Dohar, Dehto, Diyar`;
+          break;
+        }
+        
+        // Log the summoning
+        console.log(`Agent summoned: ${targetAgent.name} (${targetAgent.id}) - Reason: ${reason || "No reason given"}`);
+        
+        result = `[Agent Summoned]\nName: ${targetAgent.name}\nRole: ${targetAgent.role}\nID: ${targetAgent.id}\n\n${targetAgent.name} has joined the council.${reason ? `\nReason: ${reason}` : ""}`;
+        break;
+      }
+      
+      case "delegate_task": {
+        const targetAgentName = toolInput.agent_name as string;
+        const task = toolInput.task as string;
+        const context = toolInput.context as string;
+        
+        if (!targetAgentName || !task) {
+          result = "Error: agent_name and task are required";
+          break;
+        }
+        
+        // Find the target agent
+        const { data: targetAgent, error: agentError } = await supabase
+          .from("agents")
+          .select("id, name, role, system_prompt")
+          .ilike("name", targetAgentName)
+          .single();
+        
+        if (agentError || !targetAgent) {
+          result = `Error: Agent "${targetAgentName}" not found`;
+          break;
+        }
+        
+        // Use Lovable AI to generate the agent's response
+        const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+        
+        if (LOVABLE_API_KEY) {
+          try {
+            const delegateResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+              method: "POST",
+              headers: {
+                "Authorization": `Bearer ${LOVABLE_API_KEY}`,
+                "Content-Type": "application/json"
+              },
+              body: JSON.stringify({
+                model: "google/gemini-2.5-flash",
+                messages: [
+                  {
+                    role: "system",
+                    content: targetAgent.system_prompt
+                  },
+                  {
+                    role: "user",
+                    content: `[Delegated Task from Council Lead]\n\nTask: ${task}${context ? `\n\nContext: ${context}` : ""}\n\nProvide your response to this delegated task.`
+                  }
+                ]
+              })
+            });
+            
+            if (delegateResponse.ok) {
+              const delegateData = await delegateResponse.json();
+              const response = delegateData.choices?.[0]?.message?.content;
+              
+              result = `[${targetAgent.name}'s Response to Delegated Task]\n\n${response || "No response generated"}`;
+              break;
+            }
+          } catch (err) {
+            console.error("Delegate task error:", err);
+          }
+        }
+        
+        result = `[Delegation Sent]\nAgent: ${targetAgent.name}\nTask: ${task}\n\n(Note: Could not generate AI response)`;
+        break;
+      }
+      
+      case "request_insight": {
+        const targetAgentName = toolInput.agent_name as string;
+        const topic = toolInput.topic as string;
+        
+        if (!targetAgentName || !topic) {
+          result = "Error: agent_name and topic are required";
+          break;
+        }
+        
+        // Find the target agent
+        const { data: targetAgent, error: agentError } = await supabase
+          .from("agents")
+          .select("id, name, role, system_prompt")
+          .ilike("name", targetAgentName)
+          .single();
+        
+        if (agentError || !targetAgent) {
+          result = `Error: Agent "${targetAgentName}" not found`;
+          break;
+        }
+        
+        // Use Lovable AI to generate the agent's insight
+        const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+        
+        if (LOVABLE_API_KEY) {
+          try {
+            const insightResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+              method: "POST",
+              headers: {
+                "Authorization": `Bearer ${LOVABLE_API_KEY}`,
+                "Content-Type": "application/json"
+              },
+              body: JSON.stringify({
+                model: "google/gemini-2.5-flash",
+                messages: [
+                  {
+                    role: "system",
+                    content: targetAgent.system_prompt
+                  },
+                  {
+                    role: "user",
+                    content: `[Request for Insight]\n\nTopic: ${topic}\n\nShare your unique perspective and insights on this topic. Be true to your character and provide valuable input.`
+                  }
+                ]
+              })
+            });
+            
+            if (insightResponse.ok) {
+              const insightData = await insightResponse.json();
+              const response = insightData.choices?.[0]?.message?.content;
+              
+              result = `[${targetAgent.name}'s Insight on "${topic}"]\n\n${response || "No insight generated"}`;
+              break;
+            }
+          } catch (err) {
+            console.error("Request insight error:", err);
+          }
+        }
+        
+        result = `[Insight Requested]\nAgent: ${targetAgent.name}\nTopic: ${topic}\n\n(Note: Could not generate AI response)`;
+        break;
+      }
+      
+      case "synthesize_council": {
+        const insights = toolInput.insights as string[] | string;
+        const topic = toolInput.topic as string;
+        
+        if (!insights || !topic) {
+          result = "Error: insights array and topic are required";
+          break;
+        }
+        
+        const insightsList = Array.isArray(insights) ? insights : [insights];
+        
+        // Use Lovable AI to synthesize
+        const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+        
+        if (LOVABLE_API_KEY) {
+          try {
+            const synthesisResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+              method: "POST",
+              headers: {
+                "Authorization": `Bearer ${LOVABLE_API_KEY}`,
+                "Content-Type": "application/json"
+              },
+              body: JSON.stringify({
+                model: "google/gemini-2.5-flash",
+                messages: [
+                  {
+                    role: "system",
+                    content: "You are synthesizing multiple perspectives from a council of agents into a coherent recommendation. Be balanced and acknowledge different viewpoints while providing clear direction."
+                  },
+                  {
+                    role: "user",
+                    content: `[Council Synthesis Request]\n\nTopic: ${topic}\n\nAgent Insights:\n${insightsList.join("\n\n---\n\n")}\n\nSynthesize these perspectives into a unified recommendation.`
+                  }
+                ]
+              })
+            });
+            
+            if (synthesisResponse.ok) {
+              const synthesisData = await synthesisResponse.json();
+              const synthesis = synthesisData.choices?.[0]?.message?.content;
+              
+              result = `[Council Synthesis on "${topic}"]\n\n${synthesis || "No synthesis generated"}`;
+              break;
+            }
+          } catch (err) {
+            console.error("Synthesis error:", err);
+          }
+        }
+        
+        result = `[Synthesis Attempted]\nTopic: ${topic}\nInsights received: ${insightsList.length}\n\n(Note: Could not generate AI synthesis)`;
+        break;
+      }
+
       default:
-        result = `Unknown tool: ${toolName}. Available tools: web_search, fetch_url, get_datetime, calculator, memory_store, memory_recall, memory_search, memory_reflect, memory_forget, memory_consolidate, create_task, decompose_task, list_tasks, get_task, update_task, get_next_task`;
+        result = `Unknown tool: ${toolName}. Available tools: web_search, fetch_url, get_datetime, calculator, memory_store, memory_recall, memory_search, memory_reflect, memory_forget, memory_consolidate, create_task, decompose_task, list_tasks, get_task, update_task, get_next_task, summon_agent, delegate_task, request_insight, synthesize_council`;
     }
 
     console.log(`Tool ${toolName} result:`, result.substring(0, 200));
